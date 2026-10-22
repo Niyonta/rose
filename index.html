@@ -1,0 +1,1064 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+<title>ROSE: A Values-Based Decision-Maker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Noto+Serif+Bengali:wght@500&display=swap">
+<style>
+/* Layout: three-zone workbench. Step path on the left, the step in the middle, a live "bloom" of the formula on the right. Stacks on phones. */
+:root{
+  --bg:#FBF6F8; --card:#FFFFFF; --soft:#F3E7EC; --line:#E6D6DD;
+  --fg:#2B1820; --muted:#6F5963; --rose:#B0245A; --rose-ink:#FFFFFF;
+  --leaf:#3D7A4F; --amber:#C77A1E; --plum:#6A4C9C; --warn:#9A5B00; --warn-bg:#FFF2DB;
+  --blank:#B0245A22;
+  --display:"Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --body:"Atkinson Hyperlegible", "Segoe UI", Verdana, sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#191116; --card:#22181E; --soft:#2D1F27; --line:#3D2C35;
+  --fg:#F4EAEF; --muted:#BBA6B0; --rose:#F07099; --rose-ink:#2A0F1A;
+  --leaf:#7DC28F; --amber:#E9A44E; --plum:#A88BE0; --warn:#F2C26B; --warn-bg:#3A2A10; --blank:#F0709933;
+  color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#191116; --card:#22181E; --soft:#2D1F27; --line:#3D2C35;
+  --fg:#F4EAEF; --muted:#BBA6B0; --rose:#F07099; --rose-ink:#2A0F1A;
+  --leaf:#7DC28F; --amber:#E9A44E; --plum:#A88BE0; --warn:#F2C26B; --warn-bg:#3A2A10; --blank:#F0709933;
+  color-scheme:dark }
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.5}
+.wrap{max-width:1280px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(1.6rem,3vw,2.2rem);font-weight:700;letter-spacing:-.01em}
+h2{font-size:1.45rem;font-weight:700}
+h3{font-size:1.05rem;font-weight:700}
+p{margin:0}
+.muted{color:var(--muted)}
+.eyebrow{font-size:.75rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:700}
+header.top{display:flex;flex-wrap:wrap;gap:16px 24px;align-items:flex-end;justify-content:space-between;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.brand{display:flex;flex-direction:column;gap:4px;min-width:0}
+.brand .sub{color:var(--muted);max-width:60ch}
+.controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:3px;background:var(--card)}
+.seg button{border:0;background:transparent;color:var(--fg);font:inherit;font-size:.92rem;padding:7px 14px;border-radius:999px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--rose);color:var(--rose-ink);font-weight:700}
+.examples{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 0;font-size:.92rem}
+.examples .tag{font-weight:700}
+.linkbtn{border:1px dashed var(--line);background:transparent;color:var(--fg);font:inherit;font-size:.88rem;padding:5px 11px;border-radius:999px;cursor:pointer}
+.linkbtn[aria-pressed="true"]{border-style:solid;border-color:var(--rose);color:var(--rose);font-weight:700}
+.banner{background:var(--soft);border-radius:10px;padding:8px 12px;font-size:.9rem}
+.grid{display:grid;grid-template-columns:220px minmax(0,1fr) 330px;gap:24px;margin-top:8px;align-items:start}
+nav.path{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px)}
+nav.path ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;counter-reset:s}
+nav.path li button{width:100%;text-align:left;border:0;background:transparent;color:var(--muted);font:inherit;font-size:.93rem;padding:7px 10px;border-radius:8px;cursor:pointer;display:flex;gap:10px;align-items:baseline}
+nav.path li button .n{font-variant-numeric:tabular-nums;font-size:.78rem;min-width:1.4em;color:var(--muted)}
+nav.path li button[aria-current="step"]{background:var(--soft);color:var(--fg);font-weight:700}
+nav.path li button.done{color:var(--fg)}
+nav.path li button.done .n{color:var(--leaf)}
+main.step{min-width:0;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:20px}
+.stephead{display:flex;flex-direction:column;gap:8px}
+.info{color:var(--fg);max-width:65ch}
+.cheer{color:var(--leaf);font-style:italic;max-width:65ch}
+.field{display:flex;flex-direction:column;gap:8px;min-width:0}
+.field>label,.field>.lab{font-weight:700;font-size:.95rem}
+.hint{font-size:.85rem;color:var(--muted)}
+select,input[type=text],input[type=number],textarea{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 11px;width:100%;max-width:100%}
+textarea{min-height:84px;resize:vertical}
+:focus-visible{outline:3px solid var(--rose);outline-offset:2px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--bg);color:var(--fg);font:inherit;font-size:.88rem;padding:6px 11px;border-radius:999px;cursor:pointer;text-align:left}
+.chip[aria-pressed="true"]{background:var(--rose);border-color:var(--rose);color:var(--rose-ink)}
+.chip small{opacity:.75}
+.group{display:flex;flex-direction:column;gap:6px}
+.group .gname{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+.fit{font-size:.7rem;background:var(--leaf);color:var(--bg);padding:1px 7px;border-radius:999px;margin-left:6px;letter-spacing:.04em}
+.rate{display:grid;grid-template-columns:minmax(0,1fr) 110px;gap:4px 12px;align-items:center}
+.rate .rl{font-size:.93rem}
+.rate output{font-size:.82rem;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.rate input{grid-column:1/-1;width:100%;accent-color:var(--rose)}
+.ratelist{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px 22px}
+.alloc{display:flex;flex-direction:column;gap:12px}
+.arow{display:grid;grid-template-columns:minmax(0,1fr) 64px;gap:2px 12px;align-items:center}
+.arow input{grid-column:1/-1;accent-color:var(--rose);width:100%}
+.arow .share{font-variant-numeric:tabular-nums;text-align:right;font-weight:700}
+.arow .al small{display:block;color:var(--muted);font-size:.82rem}
+.readout{background:var(--soft);border-radius:10px;padding:10px 12px;font-size:.93rem}
+.rows{display:flex;flex-direction:column;gap:10px}
+.rrow{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1.3fr) auto;gap:8px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:12px}
+.rrow input[type=range]{accent-color:var(--rose);width:100%}
+.rrow .dl{font-size:.8rem;color:var(--muted)}
+.x{border:0;background:transparent;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:4px 8px;border-radius:8px}
+.btn{border:1px solid var(--rose);background:var(--rose);color:var(--rose-ink);font:inherit;font-weight:700;padding:9px 16px;border-radius:999px;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--rose)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.navbtns{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:16px}
+.valblock{border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.valgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.pathbuild{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) minmax(0,.9fr) auto;gap:8px;align-items:center}
+.arrow{color:var(--muted)}
+.plist{display:flex;flex-direction:column;gap:6px}
+.pitem{display:flex;justify-content:space-between;gap:8px;align-items:center;background:var(--soft);border-radius:10px;padding:8px 12px;font-size:.93rem}
+.flag{background:var(--warn-bg);color:var(--fg);border-left:4px solid var(--warn);border-radius:8px;padding:10px 12px;font-size:.93rem}
+.ok{color:var(--leaf);font-weight:700}
+aside.bloom{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.panel svg{width:100%;max-width:280px;height:auto;align-self:center;display:block}
+.score{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.score .big{font-family:var(--display);font-size:2.4rem;font-weight:700;font-variant-numeric:tabular-nums;color:var(--rose)}
+.formula{font-family:var(--display);font-size:.98rem;background:var(--soft);border-radius:10px;padding:8px 10px;text-align:center}
+.bars{display:flex;flex-direction:column;gap:7px}
+.bar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;font-size:.84rem;align-items:center}
+.bar .track{grid-column:1/-1;height:7px;background:var(--soft);border-radius:999px;overflow:hidden}
+.bar .fill{height:100%;background:var(--rose);border-radius:999px;transition:width .3s}
+.bar .w{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+.bar.na{opacity:.5}
+.note{border-left:4px solid var(--leaf);padding:6px 10px;font-size:.93rem}
+.status{font-size:.88rem}
+.seed{border:2px solid var(--rose);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:16px;background:var(--bg)}
+.frame{font-size:1.05rem;line-height:1.7;max-width:70ch}
+.frame .b{background:var(--blank);border-radius:4px;padding:0 4px}
+.frame .blank{border-bottom:2px dashed var(--muted);color:var(--muted);padding:0 6px}
+.dirs{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.dir{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:4px}
+.dir strong{font-family:var(--display)}
+.dir span{font-size:.9rem;color:var(--muted)}
+.meta{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.9rem;color:var(--muted)}
+table.cmp{width:100%;border-collapse:collapse;font-size:.9rem}
+table.cmp th,table.cmp td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line)}
+table.cmp td.n{font-variant-numeric:tabular-nums;text-align:right}
+.tablewrap{overflow-x:auto}
+.copied{font-size:.85rem;color:var(--leaf)}
+.ex{font-size:.75rem;background:var(--amber);color:var(--bg);padding:1px 8px;border-radius:999px;font-weight:700;letter-spacing:.04em}
+@media (max-width:1060px){
+  .grid{grid-template-columns:minmax(0,1fr) 300px}
+  nav.path{grid-column:1/-1;position:static}
+  nav.path ol{flex-direction:row;overflow-x:auto;padding-bottom:6px}
+  nav.path li button{white-space:nowrap}
+}
+@media (max-width:760px){
+  .grid{grid-template-columns:minmax(0,1fr)}
+  aside.bloom{position:static}
+  main.step{padding:16px}
+  .rrow{grid-template-columns:minmax(0,1fr) auto}
+  .rrow>*:nth-child(2),.rrow>*:nth-child(3){grid-column:1/-1}
+  .pathbuild{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .pathbuild .arrow{display:none}
+  .pathbuild button{grid-column:1/-1}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+.tabs{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line);margin-top:14px;padding-bottom:0}
+.tabs button{border:0;border-bottom:3px solid transparent;background:transparent;color:var(--muted);font:inherit;font-size:.95rem;padding:10px 12px;cursor:pointer;white-space:nowrap;display:flex;gap:8px;align-items:center}
+.tabs button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--rose);font-weight:700}
+.tabs .soon{font-size:.68rem;background:var(--soft);color:var(--muted);padding:1px 7px;border-radius:999px;letter-spacing:.04em}
+.subrow{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between;padding:12px 0}
+.disclose{font-size:.85rem;color:var(--muted);max-width:70ch}
+details.deeper{border:1px dashed var(--line);border-radius:12px;padding:0 14px}
+details.deeper[open]{padding-bottom:14px}
+details.deeper>summary{cursor:pointer;padding:12px 0;font-weight:700;color:var(--rose);list-style:none}
+details.deeper>summary::-webkit-details-marker{display:none}
+details.deeper>summary::before{content:"+ ";}
+details.deeper[open]>summary::before{content:"− ";}
+.deepbody{display:flex;flex-direction:column;gap:20px}
+details.calc>summary{cursor:pointer;list-style:none}
+details.calc>summary::-webkit-details-marker{display:none}
+.explain{font-size:.82rem;color:var(--muted);background:var(--soft);border-radius:8px;padding:8px 10px;margin-top:6px;font-variant-numeric:tabular-nums}
+.chip:disabled{opacity:.38;cursor:not-allowed;text-decoration:line-through}
+.cycle{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-family:var(--display);font-weight:700}
+.cycle span.c{background:var(--soft);padding:4px 12px;border-radius:999px}
+.cycle span.a{color:var(--muted)}
+.pulse{animation:pulse .6s ease}
+@keyframes pulse{0%{transform:scale(1)}40%{transform:scale(1.12)}100%{transform:scale(1)}}
+.mathlist{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:8px;font-size:.88rem}
+.mathlist code{font-family:var(--display);background:var(--soft);padding:1px 6px;border-radius:6px}
+.found{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:6px;font-size:.88rem}
+.uc{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:clamp(20px,5vw,48px);display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:32px;align-items:center;margin-top:16px}
+.uc h2{font-size:clamp(2rem,6vw,3.4rem);color:var(--rose);letter-spacing:-.02em}
+.uc .pot{position:relative;width:100%;max-width:260px;aspect-ratio:1;justify-self:center}
+.uc .pot svg{width:100%;height:100%}
+.steam{stroke:var(--muted);stroke-width:4;fill:none;stroke-linecap:round;opacity:.6;animation:steam 3s ease-in-out infinite}
+.steam.s2{animation-delay:1s}.steam.s3{animation-delay:2s}
+@keyframes steam{0%{transform:translateY(8px);opacity:0}40%{opacity:.7}100%{transform:translateY(-18px);opacity:0}}
+.ingredients{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
+.ingredients li{display:flex;gap:10px;align-items:baseline}
+.ingredients li::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--leaf);flex:none;transform:translateY(-1px)}
+@media (max-width:760px){.uc{grid-template-columns:minmax(0,1fr)}}
+@media (prefers-reduced-motion:reduce){.steam,.pulse{animation:none}}
+.chip.sug{border-color:var(--leaf);border-width:2px}
+.btn.sm{padding:6px 12px;font-size:.88rem}
+.detectbox{display:flex;flex-direction:column;gap:8px}
+.detect{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between;background:var(--soft);border-radius:10px;padding:10px 12px;font-size:.93rem}
+.you{color:var(--rose)}
+.calc-c{color:var(--leaf)}
+.calc-bg{background:var(--leaf);color:var(--bg)}
+.coled{border:1px solid var(--line);border-radius:12px;padding:14px;gap:14px}
+.outblock{display:flex;flex-direction:column;gap:6px;padding-top:6px;border-top:1px solid var(--line)}
+.bar.sm{font-size:.8rem}
+.bar.sm .track{height:5px}
+.jwrap{display:flex;flex-direction:column;gap:12px}
+.journey{border:1px solid var(--line);border-radius:16px;padding:18px;background:var(--card);display:flex;flex-direction:column;gap:14px;min-height:320px}
+.jhead{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline;justify-content:space-between}
+.jhead h3{flex-basis:100%;font-size:1.25rem}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:.8rem;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:50%;display:inline-block}
+.jscene{display:flex;flex-direction:column;gap:12px;animation:fadein .5s ease both;min-width:0}
+.jcap{font-size:.93rem;color:var(--muted);max-width:65ch}
+.jrows{display:flex;flex-direction:column;gap:8px}
+.jrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;animation:slidein .6s ease both;animation-delay:var(--d,0s)}
+.pill{border-radius:999px;padding:5px 12px;font-size:.92rem;border:1px solid var(--line);background:var(--bg)}
+.pill.you{border-color:var(--rose)}
+.pill.calc-bg{border-color:var(--leaf);font-weight:700}
+.jarrow{color:var(--muted);font-size:.9rem}
+.jbars{display:flex;flex-direction:column;gap:10px}
+.jbar{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:4px 10px;align-items:center;font-size:.92rem}
+.jbar .track{grid-column:1/-1;height:9px;background:var(--soft);border-radius:999px;overflow:hidden}
+.num{font-variant-numeric:tabular-nums;font-weight:700}
+.fill.grow{width:var(--w);animation:grow 1s ease both;animation-delay:var(--d,0s);background:var(--leaf)}
+.jsvg{width:100%;max-width:420px;height:auto;align-self:center}
+.jedge{stroke:var(--leaf);stroke-width:2.5;stroke-dasharray:200;stroke-dashoffset:0;animation:draw 1.2s ease both;animation-delay:var(--d,0s)}
+.jlab{fill:var(--fg);font:12px var(--body);font-variant-numeric:tabular-nums}
+.jnode{fill:var(--fg);font:700 12px var(--display)}
+.jeq{font-size:.9rem;display:flex;flex-direction:column;gap:4px;font-variant-numeric:tabular-nums}
+.jeq.big{font-family:var(--display);font-size:1.15rem;line-height:1.8;display:block}
+.bloomnum{color:var(--rose);font-size:2rem}
+.jstreams{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.jstream{border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px;animation:slidein .6s ease both}
+.mini{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;font-size:.8rem}
+.mini .track{grid-column:1/-1;height:5px;background:var(--soft);border-radius:999px;overflow:hidden}
+.jsub{font-family:var(--display);font-size:1.8rem;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+.jrose svg{width:100%;max-width:240px;display:block;margin:0 auto}
+.jrose .petal{transform-origin:0 0;animation:bloom 1s ease both}
+blockquote.mine{margin:0;border-left:4px solid var(--rose);padding:8px 14px;font-size:1.05rem;font-style:italic}
+.sig{font-family:var(--display);font-weight:700;color:var(--leaf)}
+.jctrl{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.dots{display:flex;gap:6px;margin-left:auto}
+.dot{width:12px;height:12px;border-radius:50%;border:2px solid var(--rose);background:transparent;padding:0;cursor:pointer}
+.dot[aria-current="true"]{background:var(--rose)}
+@keyframes grow{from{width:0}to{width:var(--w)}}
+@keyframes draw{from{stroke-dashoffset:200}to{stroke-dashoffset:0}}
+@keyframes fadein{from{opacity:.2;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes slidein{from{opacity:.15;transform:translateX(-10px)}to{opacity:1;transform:none}}
+@keyframes bloom{from{transform:scale(.2)}to{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.jscene,.jrow,.fill.grow,.jedge,.jstream,.jrose .petal{animation:none}}
+#vbdm-editbar{position:fixed;right:calc(12px + env(safe-area-inset-right,0px));bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:50;display:flex;flex-wrap:wrap;gap:8px;align-items:center;max-width:min(560px,calc(100vw - 24px));background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;box-shadow:0 6px 24px rgb(0 0 0 / .14);font-size:.9rem}
+#vbdm-editbar .vmsg{flex-basis:100%;color:var(--leaf);font-size:.85rem}
+#vbdm-editor{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:51;width:min(560px,calc(100vw - 32px));background:var(--card);border:2px solid var(--rose);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px;box-shadow:0 10px 30px rgb(0 0 0 / .18)}
+#vbdm-editor textarea{min-height:90px}
+body.vbdm-editing .wrap{cursor:text}
+body.vbdm-editing .wrap :is(p,span,h1,h2,h3,label,button,strong,li,small,summary,option,td,th):hover{outline:1px dashed var(--rose);outline-offset:2px}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:24px;margin-top:8px;align-items:start}
+.work{display:flex;flex-direction:column;gap:14px;min-width:0}
+.fstrip{display:flex;flex-wrap:wrap;gap:6px;align-items:stretch;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px}
+.fstrip .op{align-self:center;font-family:var(--display);font-weight:700;font-size:1.3rem;color:var(--muted);padding:0 2px}
+.slot{display:flex;flex-direction:column;align-items:flex-start;gap:2px;border:1.5px dashed var(--line);background:var(--bg);color:var(--fg);font:inherit;padding:8px 12px;border-radius:12px;cursor:pointer;min-width:92px;max-width:220px;text-align:left}
+.slot .slab{font-family:var(--display);font-weight:700;font-size:1rem}
+.slot .sval{font-size:.8rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.slot.filled{border-style:solid;border-color:var(--rose)}
+.slot.filled .sval{color:var(--rose)}
+.slot[aria-current="step"]{background:var(--rose);border-color:var(--rose)}
+.slot[aria-current="step"] .slab,.slot[aria-current="step"] .sval{color:var(--rose-ink)}
+.slot.idea{max-width:260px}
+.frame.small{font-size:.95rem}
+.pos{border:1px solid var(--line);border-radius:12px;padding:14px;gap:14px}
+@media (max-width:1060px){.grid2{grid-template-columns:minmax(0,1fr)}aside.bloom{position:static}}
+@media (max-width:560px){.slot{min-width:0;flex:1 1 40%}.fstrip .op{display:none}}
+#vbdm-editor[hidden],#vbdm-editbar[hidden]{display:none}
+.chip[data-tip]{position:relative}
+.chip[data-tip]:hover::after,.chip[data-tip]:focus-visible::after{content:attr(data-tip);position:absolute;left:0;top:calc(100% + 6px);z-index:30;width:max-content;max-width:min(280px,80vw);white-space:normal;background:var(--fg);color:var(--bg);font-size:.8rem;font-weight:400;line-height:1.4;padding:8px 10px;border-radius:8px;pointer-events:none;box-shadow:0 6px 18px rgb(0 0 0 / .18)}
+.frame .blank{font-size:.85rem;font-style:italic}
+.pillars{list-style:none;margin:6px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 20px;max-width:980px}
+.pillars li{display:flex;flex-direction:column;gap:2px;font-size:.9rem;border-left:3px solid var(--rose);padding-left:10px}
+.pillars strong{font-family:var(--display)}
+.pillars span{color:var(--muted)}
+.audline{font-size:.9rem;color:var(--fg);margin-top:4px}
+.audcard{margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.audrow{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}
+.audmini{margin-top:12px;font-size:.9rem;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+/* ===== Per-section identities (each tab reads as its own site) ===== */
+:root{--hero1:#FBE7EE;--hero2:#F7F0EA;--shadow:0 1px 2px rgb(43 24 32 / .04),0 8px 28px rgb(43 24 32 / .06)}
+.wrap[data-lens="basha"]{--rose:#B0245A;--hero1:#FBE4EC;--hero2:#F8F0EA}
+.wrap[data-lens="research"]{--rose:#1D5C9E;--hero1:#E2EDF8;--hero2:#EEF5F3}
+.wrap[data-lens="art"]{--rose:#7A3D9E;--hero1:#F0E6F7;--hero2:#FBEEF3}
+.wrap[data-lens="self"]{--rose:#2A7364;--hero1:#E0F1EC;--hero2:#F4F2E7}
+.wrap[data-lens="shop"]{--rose:#9A5300;--hero1:#FBECD8;--hero2:#F3F1E5}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--hero1:#33141F;--hero2:#241A1C;--shadow:0 8px 28px rgb(0 0 0 / .35)}
+ :root:not([data-theme="light"]) .wrap[data-lens="basha"]{--rose:#F07099;--hero1:#36141F;--hero2:#251A1C}
+ :root:not([data-theme="light"]) .wrap[data-lens="research"]{--rose:#86B6EE;--hero1:#16253A;--hero2:#18272A}
+ :root:not([data-theme="light"]) .wrap[data-lens="art"]{--rose:#C9A0EA;--hero1:#2A1C36;--hero2:#2C1925}
+ :root:not([data-theme="light"]) .wrap[data-lens="self"]{--rose:#7CCBB8;--hero1:#14302A;--hero2:#24251A}
+ :root:not([data-theme="light"]) .wrap[data-lens="shop"]{--rose:#F0B25E;--hero1:#33240F;--hero2:#262418}}
+:root[data-theme="dark"]{--hero1:#33141F;--hero2:#241A1C;--shadow:0 8px 28px rgb(0 0 0 / .35)}
+:root[data-theme="dark"] .wrap[data-lens="basha"]{--rose:#F07099;--hero1:#36141F;--hero2:#251A1C}
+:root[data-theme="dark"] .wrap[data-lens="research"]{--rose:#86B6EE;--hero1:#16253A;--hero2:#18272A}
+:root[data-theme="dark"] .wrap[data-lens="art"]{--rose:#C9A0EA;--hero1:#2A1C36;--hero2:#2C1925}
+:root[data-theme="dark"] .wrap[data-lens="self"]{--rose:#7CCBB8;--hero1:#14302A;--hero2:#24251A}
+:root[data-theme="dark"] .wrap[data-lens="shop"]{--rose:#F0B25E;--hero1:#33240F;--hero2:#262418}
+.wrap{max-width:1320px}
+header.top{border-bottom:0;padding-bottom:6px}
+header.top h1{font-size:clamp(1.5rem,2.6vw,2rem)}
+.pillars li{border-left-color:var(--line)}
+.tabs{position:relative;gap:2px;margin-top:10px;border-bottom:1px solid var(--line)}
+.tabs button{font-size:.92rem;padding:12px 14px;border-radius:10px 10px 0 0}
+.tabs button:hover{color:var(--fg);background:var(--soft)}
+.tabs button[aria-selected="true"]{color:var(--rose);border-bottom-color:var(--rose)}
+.hero{position:relative;overflow:hidden;border-radius:24px;margin-top:20px;padding:clamp(24px,5vw,56px);background:linear-gradient(135deg,var(--hero1),var(--hero2));display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:24px;align-items:center;box-shadow:var(--shadow)}
+.hero-copy{display:flex;flex-direction:column;gap:12px;min-width:0}
+.hero .eyebrow{color:var(--rose)}
+.hero-title{font-size:clamp(2.4rem,6vw,4.4rem);letter-spacing:-.03em;line-height:1;font-weight:700}
+.hero .bn{display:block;font-family:"Noto Serif Bengali",serif;font-size:.42em;font-weight:500;color:var(--rose);letter-spacing:0;margin-top:10px;line-height:1.4}
+.hero-sub{font-size:clamp(1rem,1.6vw,1.2rem);max-width:54ch;line-height:1.55}
+.hero-formula{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-family:var(--display);font-weight:700;color:var(--muted)}
+.hero-formula span{color:var(--rose);background:var(--card);border-radius:999px;padding:4px 12px;box-shadow:var(--shadow)}
+.hero-art{justify-self:end;width:100%;max-width:240px}
+.hero-rose{width:100%;height:auto;animation:breathe 9s ease-in-out infinite;transform-origin:50% 40%}
+@keyframes breathe{0%,100%{transform:rotate(-3deg) scale(1)}50%{transform:rotate(3deg) scale(1.03)}}
+main.step,.panel,.fstrip,.audcard{box-shadow:var(--shadow);border-color:transparent}
+main.step{border-radius:20px;padding:28px}
+.panel{border-radius:18px}
+.stephead h2{font-size:1.7rem;letter-spacing:-.01em}
+.score .mid{font-family:var(--display);font-size:1.6rem;font-weight:700;color:var(--rose);font-variant-numeric:tabular-nums}
+.track.big{height:10px;background:var(--soft);border-radius:999px;overflow:hidden}
+.track.big .fill{display:block;height:100%;background:var(--rose);border-radius:999px;transition:width .4s}
+.planrows{display:flex;flex-direction:column;gap:6px}
+.planrow{display:grid;grid-template-columns:52px minmax(0,1fr) 44px;gap:10px;align-items:center;border:0;background:transparent;color:var(--fg);font:inherit;font-size:.85rem;padding:2px 0;cursor:pointer;text-align:left}
+.planrow .track{height:6px;background:var(--soft);border-radius:999px;overflow:hidden;display:block}
+.planrow .fill{display:block;height:100%;background:var(--rose);border-radius:999px}
+.planrow .num{text-align:right;color:var(--muted)}
+.results{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.results>div{background:var(--card);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--shadow)}
+.res-petal{border-top:4px solid var(--pc)}
+.res-petal strong{font-family:var(--display);font-size:1.6rem;color:var(--pc)}
+.res-metrics .fill{background:var(--rose)}
+.seed{background:var(--card);border:0;box-shadow:var(--shadow);border-top:5px solid var(--rose)}
+.slot{border-radius:14px}
+.btn{transition:transform .15s ease,box-shadow .15s ease}
+.btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:var(--shadow)}
+.chip{transition:background .15s ease,border-color .15s ease}
+.chip:hover:not(:disabled):not([aria-pressed="true"]){border-color:var(--rose)}
+.uc{box-shadow:var(--shadow);border-color:transparent}
+@media (max-width:760px){.hero{grid-template-columns:minmax(0,1fr)}.hero-art{display:none}main.step{padding:18px}}
+@media (prefers-reduced-motion:reduce){.hero-rose{animation:none}}
+/* research: muted ink */
+.wrap[data-lens="research"]{--rose:#3E5C7A;--hero1:#E9EEF2;--hero2:#F2F1EC}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .wrap[data-lens="research"]{--rose:#A3B9CF;--hero1:#1D2630;--hero2:#1F2524}}
+:root[data-theme="dark"] .wrap[data-lens="research"]{--rose:#A3B9CF;--hero1:#1D2630;--hero2:#1F2524}
+.subtabs{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.subtabs button{border:1px solid var(--line);background:var(--card);color:var(--fg);font:inherit;font-size:.9rem;padding:8px 14px;border-radius:999px;cursor:pointer}
+.subtabs button[aria-pressed="true"]{background:var(--rose);border-color:var(--rose);color:var(--rose-ink);font-weight:700}
+.drift{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.drift i{position:absolute;left:var(--x);bottom:-20px;width:12px;height:18px;border-radius:60% 60% 60% 0;background:var(--c);opacity:0;animation:drift var(--t) ease-in infinite;animation-delay:var(--d)}
+@keyframes drift{0%{transform:translate(0,0) rotate(0);opacity:0}15%{opacity:.35}100%{transform:translate(40px,-420px) rotate(220deg);opacity:0}}
+.hero-copy,.hero-art{position:relative;z-index:1}
+@media (prefers-reduced-motion:reduce){.drift{display:none}}
+/* v15 palette: OSU orange for scientific, turquoise self-development, blue self-discovery, red playground */
+.wrap[data-lens="research"]{--rose:#E35A00;--hero1:#FFE6D3;--hero2:#FFF4EA}
+.wrap[data-lens="self"]{--rose:#0E8A88;--hero1:#DDF4F2;--hero2:#EEF7F6}
+.wrap[data-lens="discover"]{--rose:#2563A8;--hero1:#E1ECF8;--hero2:#EEF3F9}
+.wrap[data-lens="daily"]{--rose:#C2272D;--hero1:#FBE1E1;--hero2:#FCF0EC}
+@media (prefers-color-scheme:dark){
+ :root:not([data-theme="light"]) .wrap[data-lens="research"]{--rose:#FF8A3D;--hero1:#3A1E0B;--hero2:#2A1D14}
+ :root:not([data-theme="light"]) .wrap[data-lens="self"]{--rose:#5FD3CF;--hero1:#0F2E2D;--hero2:#172625}
+ :root:not([data-theme="light"]) .wrap[data-lens="discover"]{--rose:#7FB3EE;--hero1:#14243A;--hero2:#1A2230}
+ :root:not([data-theme="light"]) .wrap[data-lens="daily"]{--rose:#F07A7E;--hero1:#3A1416;--hero2:#2B1A1A}}
+:root[data-theme="dark"] .wrap[data-lens="research"]{--rose:#FF8A3D;--hero1:#3A1E0B;--hero2:#2A1D14}
+:root[data-theme="dark"] .wrap[data-lens="self"]{--rose:#5FD3CF;--hero1:#0F2E2D;--hero2:#172625}
+:root[data-theme="dark"] .wrap[data-lens="discover"]{--rose:#7FB3EE;--hero1:#14243A;--hero2:#1A2230}
+:root[data-theme="dark"] .wrap[data-lens="daily"]{--rose:#F07A7E;--hero1:#3A1416;--hero2:#2B1A1A}
+.mindline{font-size:.95rem;max-width:80ch;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <span class="eyebrow">Ethically, intellectually, and creatively competent</span>
+      <h1>ROSE: A Values-Based Decision-Maker</h1>
+      <ul class="pillars">
+        <li><strong>Ethically</strong><span>ROSE is built on your values. You name who your work serves, and credit and compensate the people who shape it.</span></li>
+        <li><strong>Intellectually</strong><span>ROSE is built on theory and quantitative modeling, with math you can check.</span></li>
+        <li><strong>Creatively</strong><span>ROSE is a live coach and toolkit. Every idea and final decision comes from you; ROSE guides you, provides the formula, and reveals your values and your product's utility.</span></li>
+      </ul>
+      <p class="mindline">ROSE is a mindfulness-based app that self-informs quantitative decision-making, scoring outcomes on self-satisfaction, self-concept, projected success rate, and life flourishing.</p>
+      <p class="audline">For everyday people, consumers, creators, professionals, and scientists; individuals and organizations</p>
+    </div>
+  </header>
+  <div id="aud"></div>
+  <nav class="tabs" id="tabs" role="tablist" aria-label="Decision types"></nav>
+  <div id="app"></div>
+</div>
+
+<script type="application/json" id="vbdm-text">{}</script>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fid=k=>'f_'+String(k).replace(/[^\w-]/g,'_');
+const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
+const mean=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+const f2=x=>(Math.round(x*100)/100).toFixed(2);
+const pct=x=>Math.round(x*100);
+const ANCH=['Not at all','Slightly','Moderately','Very','Completely'];
+const LEVELS=['Self','People','Place','City and state','Nation'];
+const RM=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ================= Values (10, kept short on purpose: choice overload) ================= */
+const VDEF={Dignity:'Respected as they are',Belonging:'Seen, connected, and welcomed',Agency:'Able to act and choose for themselves',Equity:'Fair access and fair treatment',Wellbeing:'Health and safety of mind and body',Sustainability:'Care for land, resources, and the future',Growth:'Learning, curiosity, and skill',Creativity:'Making, play, and expression',Recognition:'Being known for the work',Security:'Funding, income, and stability'};
+const V_COMMUNITY=['Dignity','Belonging','Agency','Equity','Wellbeing','Sustainability'];
+const V_SELF=['Growth','Creativity','Recognition','Security'];
+const V_ALL=[...V_COMMUNITY,...V_SELF];
+/* phrase dictionary: [pattern, primary, secondary] */
+const VDICT=[
+ [/povert|\bpoor\b|low.income|wealth gap|income gap/i,'Equity','Agency'],[/food (in)?secur|hunger|hungry/i,'Equity','Wellbeing'],[/housing|homeless|unhoused/i,'Equity','Wellbeing'],
+ [/racis|discriminat|prejudice|\bbias|sexis|homophob|transphob|ableis|oppress|colonial|injustice|justice|civil rights|human rights|incarcer|prison|reparat|fair/i,'Equity','Dignity'],
+ [/afford|access|accessib|digital divide|opportunit|disparit|resource|barrier/i,'Equity','Belonging'],
+ [/respect|dignity|stigma|shame|humane|elders|worth/i,'Dignity',''],
+ [/welcom|belong|inclus|include|lonel|isolat|connect|community|at home|accepted|seen|looking out/i,'Belonging',''],
+ [/literacy|read(ing)? for all|education for all/i,'Agency','Equity'],
+ [/empower|independen|choice|voice|self.determin|freedom|navigat|leadership|autonom|good jobs|employ/i,'Agency',''],
+ [/violen|abuse|harass|bully|crime|scam|fraud|unsafe|safe|protect|mental health|health|wellbeing|well-being|wellness|stress|anxiet|depress|heal|burnout|sleep|thriv|flourish/i,'Wellbeing',''],
+ [/climate|environment|sustainab|planet|earth|land|water|nature|pollut|drought|waste|future generation/i,'Sustainability','Equity'],
+ [/curio|wonder|discover|understand|question|explor|knowledge|truth|science|learn|master|expert|skill|excel|rigor|competen|get better|improv|grow/i,'Growth',''],
+ [/creat|\bart|music|play|fun|joy|express|design|beaut|imagin|craft|poetr|writ/i,'Creativity',''],
+ [/recogni|publish|famous|known|reputation|award|prestige|credit|my name/i,'Recognition','Security'],
+ [/money|financ|\bjob|career|stab|salary|funding|paid|pay the bills|secur/i,'Security','']
+];
+function detectValues(text,allowed){if(!text||text.trim().length<3)return[];const out=[];
+ VDICT.forEach(([re,p,s])=>{if(re.test(text)&&!out.find(o=>o.p===p))out.push({p,s:s&&s!==p?s:''})});
+ return out.map(o=>({...o,ok:allowed.includes(o.p),s:allowed.includes(o.s)?o.s:''})).slice(0,3)}
+const SUB={Dignity:['Respected as they are','Privacy protected','Competence assumed'],Belonging:['Seen in the space, staff, and materials','Connected to others','Welcomed in their own language'],Agency:['Navigates independently','Makes informed choices','Gains skills to act'],Equity:['Barriers removed','Fair treatment','Resources reach those missing'],Wellbeing:['Mental health','Physical health and safety','Rest and joy'],Sustainability:['Protects land and water','Uses resources wisely','Thinks of future generations'],Growth:["Questions that won't let go",'Learning for its own sake','Skill and craft'],Creativity:['Making something new','Play and experimentation','Expression'],Recognition:['Publication or portfolio','Name in the field','Competitive applications'],Security:['Funded work','Marketable skills','Stable income']};
+const PATHNOTE={'Belonging>Agency':'People who feel they belong ask more questions. In your map, belonging fuels agency.','Agency>Dignity':'Doing it yourself is a form of respect. In your map, agency carries dignity.','Belonging>Dignity':'Seeing yourself in a space tells you that you are welcome there. Belonging carries dignity in your map.','Equity>Belonging':'When barriers fall, people can arrive. Equity opens the door to belonging.','Equity>Agency':'Fair access gives people room to choose. Equity fuels agency in your map.','Equity>Dignity':'Fair treatment restores respect. Equity carries dignity here.','Recognition>Security':'In your map, recognition matters as a route to security. Ask whether it also matters on its own.','Growth>Creativity':'Your questions become things you make.','Creativity>Wellbeing':'Your craft becomes a way to help people feel well.','Growth>Sustainability':'Your skill is how you care for the land.','Sustainability>Equity':'Caring for land and water reaches the people who depend on them most.'};
+
+/* ================= Lists ================= */
+const L={
+ relR:['I\'m part of this community','Close tie (family, friends)','I serve this community now','I want to serve them','I\'m learning about them'],
+ bringR:['Languages','Cultural knowledge','Trust and access','Space','Collections or materials','Staff time','Funding','Partnerships'],
+ missR:['Insider assumptions','Outsider blind spots','Power gaps','Language gaps','No current relationship','Past harm by our institution'],
+ whoR:['International students','Refugees and asylees','Immigrants and migrants','First-gen students','Low-income residents','Multilingual and English-learning residents','Black communities','Hispanic and Latine communities','Indigenous communities','Disabled community members','Older adults','Youth and teens','Children and families','LGBTQ+ community','Military service members and families','Veterans','Unhoused neighbors','Rural residents'],
+ barrier:['Cost and rules (fines, fees, ID)','Time and access (hours, transit)','Language','Trust and systems (privacy, unfamiliar systems)','Histories of exclusion','Representation (staff, collections)','Awareness','Digital access'],
+ outcomeR:['Use by the named community','Completed referrals','Guides used','Program attendance','Skill gain','Belonging or satisfaction rating','New partnership','Policy adopted','Staff trained'],
+ owner:['Front desk or access','Reference or information','Programming or outreach','Instruction','Leadership','Volunteers','Communications'],
+ partners:['Resettlement agencies','International offices','Cultural centers','Student groups','Faith communities','Schools','Employers','Local businesses','Tribal nations or Indigenous organizations','Community members directly'],
+ policy:['No immigration data collected','Fine-free or fee waiver','ID alternatives','Privacy policy','Language access policy','Compensated co-design','None needed'],
+ levelRose:['Bud: Start','Full bloom: Grow','Climbing rose: Formalize'],
+ informed:['Community members named the need','Community knowledge and practices lead','Co-designed with community members','Community reviews it before launch','Community co-evaluates the outcome'],
+ credit:['Named as co-creators','Co-presenters or co-authors','Acknowledged in materials and signage','Community owns what is made (guides, art, data)','A decision-making seat (advisory group)'],
+ compensate:['Stipend or honorarium','Hourly pay','Gift cards','Food, childcare, or transit covered','Free services or resources','Certificate or reference letter','Volunteering by their own choice'],
+ timeline:['30 days','3 months','6 months','1 year','2+ years'],
+ integration:['Honors heritage culture AND bridges to the new','Heritage-centered by design (affinity space)','Bridges to the new only','Neither yet'],
+ stage:['Intro course','Upper-division course','Honors','Master\'s','Doctoral','Faculty','Practitioner','Industry or engineering team'],
+ scale:['Seed: one session or assignment','Sprout: a short project','Garden: a major project or ongoing program','Forest: multi-year or multi-site'],
+ product:['Class paper','Poster or talk','Honors thesis','Master\'s thesis','Dissertation','Journal article','Book or chapter','Applied program or intervention','Policy brief','Grant proposal','Community report','Dataset or measure','Toolkit or guide','Tool, app, or device','Exhibit or performance','Teaching module'],
+ relS:['Lived experience','Community member','Close tie','Work or volunteer experience','Ally learning alongside','Intellectual curiosity'],
+ bringS:['Languages','Cultural knowledge','Community access','Methods skill','Technical skill','Creative skill','Professional insight','Fresh eyes'],
+ missS:['Insider assumptions','Outsider blind spots','Power differences','Language gaps','Limited access','Emotional closeness to the topic'],
+ learnFrom:['Community members','Elders or knowledge keepers','Advisor','Peers','Scholars from the community'],
+ whoS:['Undergraduates','Grad students','First-gen students','International students','Immigrants and refugees','Racially and ethnically minoritized groups','Indigenous communities','LGBTQ+ people','Children','Adolescents','Older adults','Parents','Employees','Artists and creatives','Military-connected people (service members, veterans, families)','Clinical populations','Rural communities','Online communities','General adults'],
+ need:['Individuals\' wellbeing','A specific community','Schools and educators','Clinicians and practitioners','Organizations','Policymakers','The field (theory)'],
+ gap:['Understudied population','Theory untested in this context','Method gap','Contradictory findings','Applied or translation gap','Replication needed','New measure needed'],
+ data:['Have it','Can collect','Hard to get'],advisor:['Aligned','Somewhat','Not yet'],irb:['Exempt','Expedited','Full board','Not human subjects'],cost:['None','Low','Needs funding'],
+ shapes:['Community co-defines','Community consulted','Stakeholders consulted (committee, institutions, partners)','Researcher alone'],
+ creditS:['Acknowledged in materials','Co-authors or co-presenters','Named in a community report','Stakeholders own or share the data','Advisory or committee role recognized'],
+ compS:['Stipend or honorarium','Gift cards','Course credit','Certificate or reference letter','Shared findings or resources','Not applicable: no participants'],
+ outcomeS:['Deeper understanding','Better wellbeing','Fairer access to resources','Skills people can use','A tool in use','Data people can use','Policy or practice change','Stronger community ties'],
+ returnPlan:['Community report','Workshop','Policy brief','Shared data','Open-source tool','Not yet planned']
+};
+/* Theories, organized by the PSYC 2743 course (Weeks 1 to 16), with short hover descriptions */
+const THEORY={
+ 'Foundations for helping':['Liberation psychology','Indigenous psychology','SAPR: social action participatory research (Lewin)','Critical humanism','Settlement house model (Hull House)'],
+ 'Self and culture':['Self-concept','Interdependent (relational) self','Social comparison','Self-presentation','Self-perception theory (Bem)','Acculturation strategies (Berry)','Cultural competence','Habitus','Humanistic psychology and self-actualization','Positive psychology (PERMA)'],
+ 'Social cognition':['Social constructionism','Schema theory','Heuristics and cognitive bias','Attribution theory','Social representations theory','Narrative psychology','Discursive psychology'],
+ 'Attitudes and influence':['ABC model of attitudes','Cognitive dissonance (Festinger)','Elaboration Likelihood Model','Inoculation theory','Conformity and obedience'],
+ 'Helping':['Altruism and the selfish hypothesis','Bystander effect and the 5-step model','Volunteering Functions Inventory'],
+ 'Power and domination':['Social dominance theory','Moral disengagement theory','Moral exclusion','System justification'],
+ 'Groups and intergroup relations':['Realistic conflict and superordinate goals (Sherif)','Contact hypothesis (Allport)','Social identity theory','Microaggressions and microinterventions','Intersectionality (Crenshaw)','Racialization'],
+ 'Place and belonging':['Structuration theory (micro to macro)','Place-based identity and emplacement','Scales of belonging (home, second home, third space)','Third place (Oldenburg)','Need to belong (Baumeister & Leary)','Social capital'],
+ 'Relationships and attraction':['Similarity-attraction','Social penetration theory','Social exchange theory','Social role and gender schema theories'],
+ 'Aggression':['Social learning theory (Bandura)','Frustration-aggression theory','General aggression model'],
+ 'Work and health':['Latent benefits of work (Jahoda)','Vitamin model (Warr)','Decent work and sustainable livelihoods','Biopsychosocial model','Social determinants of health','Health belief model','Theory of reasoned action','Spiral model of behavior change'],
+ 'Justice':['Distributive and procedural justice','Relative deprivation','Equity theory','Just-world belief','Relational model of justice'],
+ 'Media':['Cultivation theory','Uses and gratifications','Symbolic power'],
+ 'Across fields':['Human-centered design','Systems thinking','Diffusion of innovations']
+};
+const TTIP={'Liberation psychology':'Starts from the lived experience of oppressed groups and aims at liberation (Martín-Baró)','Indigenous psychology':'Psychology rooted in local knowledge and relevance; decolonizes the discipline','SAPR: social action participatory research (Lewin)':'Communities co-lead research that aims at social change.','Critical humanism':'Humanistic psychology that attends to power and social conditions','Settlement house model (Hull House)':'Services, education, arts, and neighborhood research under one roof (Addams)','Self-concept':'Traits, roles, group memberships, and values that define who you are','Interdependent (relational) self':'A self defined through relationships and context','Social comparison':'Judging yourself against others, upward or downward','Self-presentation':'Managing how others see you','Self-perception theory (Bem)':'We infer our attitudes by watching our own behavior.','Acculturation strategies (Berry)':'Assimilation, integration, separation, marginalization, shaped by structural barriers','Cultural competence':'Ongoing, reflexive skill in working across cultures','Habitus':'Ingrained dispositions shaped by social position (Bourdieu)','Humanistic psychology and self-actualization':'Agency, meaning, and growth toward one\'s potential (Maslow)','Positive psychology (PERMA)':'Wellbeing through positive emotions, engagement, relationships, meaning, achievement','Social constructionism':'Shared meanings are built through externalization, objectivation, internalization.','Schema theory':'Mental frameworks that filter what we notice and remember','Heuristics and cognitive bias':'Mental shortcuts: representativeness, availability, anchoring','Attribution theory':'How we explain behavior; includes the fundamental attribution error','Social representations theory':'How groups turn the unfamiliar into shared common sense','Narrative psychology':'People make meaning through the stories they tell.','Discursive psychology':'Language in use constructs social reality.','ABC model of attitudes':'Attitudes have affective, behavioral, and cognitive parts.','Cognitive dissonance (Festinger)':'Tension when beliefs and actions clash, and how we reduce it','Elaboration Likelihood Model':'Persuasion through central (careful) or peripheral (cue-based) routes','Inoculation theory':'Small doses of counterarguments build resistance to persuasion.','Conformity and obedience':'Going along with groups (normative, informational) or with authority','Altruism and the selfish hypothesis':'Helping for others\' sake, or for rewards like warm glow','Bystander effect and the 5-step model':'Why people fail to help, and the steps to intervening','Volunteering Functions Inventory':'Motives for volunteering: values, career, understanding, enhancement, protective, social','Social dominance theory':'Legitimizing myths and institutions sustain group hierarchy.','Moral disengagement theory':'How people justify harm: dehumanization, euphemism, diffused responsibility','Moral exclusion':'Placing some people outside the scope of justice','System justification':'The motive to defend existing systems, even unfair ones','Realistic conflict and superordinate goals (Sherif)':'Competition breeds conflict; shared goals reduce it (Robbers Cave).','Contact hypothesis (Allport)':'Contact reduces prejudice under equal status, common goals, cooperation, and support.','Social identity theory':'Group memberships shape self-esteem and intergroup behavior.','Microaggressions and microinterventions':'Everyday slights, and concrete ways to respond','Intersectionality (Crenshaw)':'Overlapping identities create distinct experiences of power and exclusion.','Racialization':'How racial meanings get assigned to groups','Structuration theory (micro to macro)':'Everyday actions and social structures shape each other (Giddens).','Place-based identity and emplacement':'Who we are grows from our active relationship with places.','Scales of belonging (home, second home, third space)':'Belonging nested from home to third spaces and beyond','Third place (Oldenburg)':'Welcoming places between home and work that center conversation','Need to belong (Baumeister & Leary)':'A fundamental human need for lasting, caring bonds','Social capital':'Resources that flow through social networks and trust','Similarity-attraction':'We are drawn to people like us.','Social penetration theory':'Relationships deepen through breadth and depth of self-disclosure.','Social exchange theory':'Relationships weighed by costs and rewards','Social role and gender schema theories':'How roles and gender categories shape behavior and perception','Social learning theory (Bandura)':'We learn by observing, retaining, and imitating models.','Frustration-aggression theory':'Blocked goals raise aggression; cues like weapons amplify it.','General aggression model':'Person and situation shape thoughts, feelings, and arousal, then behavior.','Latent benefits of work (Jahoda)':'Work gives time structure, contact, purpose, status, and activity.','Vitamin model (Warr)':'Job features affect wellbeing like vitamins, helpful up to a point.','Decent work and sustainable livelihoods':'Fair income, security, development, voice, and equality at work','Biopsychosocial model':'Health shaped by biological, psychological, and social factors','Social determinants of health':'Where people live, work, and age shapes their health.','Health belief model':'Health action depends on perceived risk, severity, benefits, barriers, and cues.','Theory of reasoned action':'Attitudes and norms shape intentions, which shape behavior.','Spiral model of behavior change':'From pre-contemplation to maintenance, with relapse as part of change','Distributive and procedural justice':'Fairness of outcomes, and fairness of how decisions are made','Relative deprivation':'Feeling deprived compared with others (egoistic or fraternal)','Equity theory':'People seek fairness between what they give and what they get.','Just-world belief':'The belief that people get what they deserve','Relational model of justice':'Fair treatment signals that people are valued members of the group.','Cultivation theory':'Heavy media exposure shapes beliefs about the real world.','Uses and gratifications':'People actively choose media to meet needs.','Symbolic power':'The power to shape what counts as real and legitimate','Human-centered design':'Design shaped by the people who will use it','Systems thinking':'Understanding how parts of a system interact over time','Diffusion of innovations':'How new ideas and tools spread through communities'};
+
+/* Research methods, organized as in the PSYC 2743 research methods lecture */
+const STANCE={'Indigenous':'Research aims at change, governed by the community; e.g., First Nations communities governing their own health survey data','Community-based (SAPR)':'The community co-leads in transformation-based social action participatory research; e.g., researchers and Flint residents testing the city\'s water','Liberatory':'Centers local knowledge; e.g., youth aged out of foster care researching their own cash pilot','Researcher-led':'The researcher designs and runs the study, informed by the literature and stakeholders; e.g., an archival study of university records'};
+const LENSV={'Etic':'An outside lens: the same measure applied across people; e.g., one scale used in many countries','Emic':'An inside lens defined by the community; e.g., the community defines wellbeing'};
+const DESIGN={
+ 'Quantitative':{'Experimental':'Random assignment: does X cause Y? e.g., Bobo doll study','Quasi-experimental':'Groups already exist; compare naturally formed groups; e.g., two schools, one with a new program','Correlational':'No manipulation: are X and Y related? e.g., game hours and aggression','Survey':'Self-report: what do people think or do? e.g., national attitude poll','Observational':'Watch and record behavior as counts or ratings; e.g., aggressive acts per recess','Naturalistic observation':'Observe in real-world settings without interfering; e.g., how friendships develop','Cross-sectional':'One point in time; compare groups at the same moment; e.g., first-years and seniors surveyed today','Longitudinal':'The same people or records over time; track change; e.g., children followed from age 4 to 12'},
+ 'Qualitative':{'Interviews and focus groups':'Words and meanings: how do people experience X? e.g., focus group of first-gens','Ethnography':'Long-term immersion: how does a community work? e.g., embedded in a community','Case study':'One case, in depth: what happened, and why? e.g., one program or person','Narrative':'Stories people tell: how do people make meaning? e.g., life-story interviews','Discursive analysis':'Language in use: how does talk shape X? e.g., news coverage of a group','Observation (field notes)':'Recorded as field notes: what happens in a setting? e.g., watching a town meeting'},
+ 'Records, texts, and builds':{'Archival or historical':'Existing records and documents, often across years; e.g., university diversity reports from 2000 to 2020','Content analysis':'Systematically code what texts or media contain; e.g., how syllabi describe inclusion','Meta-analysis or systematic review':'Pool and synthesize published studies','Program evaluation':'Did a program do what it set out to do?','Arts-based':'Art as the way of knowing and sharing; e.g., photovoice exhibit, performance','Design and engineering':'Build and test something; e.g., a prototype tested in the field'},
+ 'Mixed methods':{'Convergent':'Collect quantitative and qualitative data at the same time, then compare; e.g., survey and interviews in one semester','Explanatory sequential':'Numbers first; words explain the results; e.g., survey, then focus groups','Exploratory sequential':'Words first; numbers test what emerged; e.g., interviews, then a survey built from them'}
+};
+const DTIP=Object.assign({},...Object.values(DESIGN));
+const QUANT=Object.keys(DESIGN['Quantitative']),QUAL=Object.keys(DESIGN['Qualitative']),MIXED=Object.keys(DESIGN['Mixed methods']);
+const APPR={
+ 'Experimental':{c:['Lab experiment','Field experiment','Online experiment','Biological samples (saliva, blood)','Physiological measures'],a:['t-test or ANOVA','MLM']},
+ 'Quasi-experimental':{c:['Pre/post comparison','Existing groups compared'],a:['t-test or ANOVA','Difference-in-differences']},
+ 'Correlational':{c:['Survey measures','Secondary data','Diary or experience sampling','Biological samples (saliva, blood)','Physiological measures'],a:['Correlation','SEM','MLM','Network analysis']},
+ 'Survey':{c:['Questionnaire','Poll'],a:['Descriptives','Correlation']},
+ 'Observational':{c:['Behavior counts or ratings'],a:['Descriptives','Inter-rater reliability']},
+ 'Naturalistic observation':{c:['Real-world observation'],a:['Descriptives','Thematic analysis']},
+ 'Cross-sectional':{c:['One-time survey','Group comparison'],a:['Descriptives','t-test or ANOVA']},
+ 'Longitudinal':{c:['Panel survey','Repeated records over time','Diary or experience sampling','Biological samples (saliva, blood)'],a:['MLM','Growth curve modeling','SEM','Trend analysis']},
+ 'Interviews and focus groups':{c:['Interviews','Focus groups'],a:['Thematic analysis','Grounded theory coding','IPA']},
+ 'Ethnography':{c:['Participant observation','Field notes'],a:['Thematic analysis']},
+ 'Case study':{c:['Documents','Interviews','Observation'],a:['Thematic analysis']},
+ 'Narrative':{c:['Life-story interviews','Written narratives'],a:['Narrative analysis']},
+ 'Discursive analysis':{c:['Conversation transcripts','News and media texts','Social media posts','Policy documents'],a:['Discourse analysis','Critical discourse analysis']},
+ 'Observation (field notes)':{c:['Field notes'],a:['Thematic analysis']},
+ 'Archival or historical':{c:['Institutional records','Historical documents','Public datasets','Policy documents'],a:['Content analysis','Historical analysis','Descriptives','Trend analysis']},
+ 'Content analysis':{c:['News and media texts','Policy documents'],a:['Content analysis','Text mining']},
+ 'Meta-analysis or systematic review':{c:['Published studies'],a:['Meta-analysis','Systematic review synthesis']},
+ 'Program evaluation':{c:['Pre/post comparison','Program records','Interviews'],a:['Descriptives','Thematic analysis']},
+ 'Arts-based':{c:['Performance','Visual art','Poetry or creative writing'],a:['Arts-based analysis','Thematic analysis']},
+ 'Design and engineering':{c:['Prototype build','Field testing','Sensor data','User testing'],a:['Descriptives','Usability metrics']},
+ 'Convergent':{c:[],a:[]},'Explanatory sequential':{c:[],a:[]},'Exploratory sequential':{c:[],a:[]}
+};
+const STANCE_M={'Indigenous':['Talking circles','Storywork','Community-governed data'],'Community-based (SAPR)':['Community meetings','Photovoice','Community-written survey items'],'Liberatory':['Participant-led analysis','Peer researchers']};
+const MTIP={'Biological samples (saliva, blood)':'Hormones or other biomarkers measured from samples','Physiological measures':'Heart rate, skin conductance, blood pressure','Lab experiment':'Run in a controlled setting','Field experiment':'Run in a real-world setting','Online experiment':'Run online with random assignment','Pre/post comparison':'Measure before and after.','Existing groups compared':'Compare groups that already exist.','Survey measures':'Validated scales people answer','Secondary data':'Data someone else already collected','Diary or experience sampling':'Short reports, many times, in daily life','Questionnaire':'A set of questions people answer','Poll':'Brief questions to a broad sample','Behavior counts or ratings':'Trained observers count or rate behavior.','Real-world observation':'Watching without interfering','One-time survey':'Everyone answers once.','Group comparison':'Compare groups at one moment','Panel survey':'The same people surveyed repeatedly','Repeated records over time':'The same records pulled across years','Interviews':'One-on-one conversations','Focus groups':'Guided group conversations','Participant observation':'Taking part while observing','Field notes':'Written records of what you observe','Documents':'Reports, minutes, policies','Observation':'Watching a setting closely','Life-story interviews':'People tell their story in their words.','Written narratives':'Stories people write','Conversation transcripts':'Talk recorded and transcribed','News and media texts':'Articles, broadcasts, posts','Social media posts':'Public posts as data','Policy documents':'Laws, rules, institutional policies','Institutional records':'Reports and data an organization keeps','Historical documents':'Letters, minutes, archives','Public datasets':'Open data from agencies or studies','Published studies':'The literature itself as data','Program records':'Attendance, intake, outcomes','Performance':'Theater, music, or movement','Visual art':'Images people make','Poetry or creative writing':'Writing as data and as findings','Prototype build':'Make a working version.','Field testing':'Test it where it will be used.','Sensor data':'Readings from instruments','User testing':'People use it and give feedback.','Talking circles':'A shared, culturally grounded conversation','Storywork':'Indigenous story-based knowledge practice','Community-governed data':'The community controls its data.','Community meetings':'Open gatherings that shape the work','Photovoice':'Participants photograph and discuss their world.','Community-written survey items':'The community writes the questions.','Participant-led analysis':'Participants interpret the findings.','Peer researchers':'Community members trained as researchers','t-test or ANOVA':'Compare averages between groups.','MLM':'Multilevel modeling: data nested in people, groups, or time','Difference-in-differences':'Compare change in two groups over time.','Correlation':'How strongly two things move together','SEM':'Structural equation modeling: tests paths among variables','Network analysis':'Maps connections among people or ideas','Descriptives':'Counts, averages, and percentages','Inter-rater reliability':'How well two observers agree','Thematic analysis':'Find patterns of meaning across data.','Growth curve modeling':'Model each person\'s change over time.','Trend analysis':'Track change across time points.','Grounded theory coding':'Build theory up from the data.','IPA':'Interpretative phenomenological analysis: lived experience in depth','Narrative analysis':'How stories are built and what they mean','Discourse analysis':'How language does things','Critical discourse analysis':'How language carries power','Content analysis':'Code what texts contain, then count or compare.','Historical analysis':'Interpret change in context over time.','Text mining':'Computer-assisted analysis of large text','Meta-analysis':'Combine effect sizes across studies.','Systematic review synthesis':'Structured summary of a literature','Arts-based analysis':'Meaning made through the art itself','Usability metrics':'How well people can use what you built'};
+const GEAR={'Lab coat':['Experimental','Quasi-experimental','Correlational','Survey','Design and engineering'],'Field boots':['Ethnography','Interviews and focus groups','Narrative','Case study','Naturalistic observation','Observation (field notes)'],'Archive gloves':['Archival or historical','Discursive analysis','Content analysis','Meta-analysis or systematic review','Longitudinal']};
+const CONFLICT=[['Experimental','Quasi-experimental','Choose one: random assignment (experimental) or existing groups (quasi-experimental).'],['Experimental','Archival or historical','Records from the past can\'t be randomly assigned.'],['Experimental','Naturalistic observation','Naturalistic observation means no interfering; experiments manipulate.'],['Experimental','Meta-analysis or systematic review','A review pools published studies. Run your experiment as its own study.'],['Cross-sectional','Longitudinal','Choose one timing: one point in time, or over time.'],['Meta-analysis or systematic review','Ethnography','Ethnography needs your own fieldwork; a review synthesizes published work.'],['Meta-analysis or systematic review','Interviews and focus groups','Interviews collect new data; a review synthesizes published work.'],['Convergent','Explanatory sequential','Choose one mixed-methods sequence.'],['Convergent','Exploratory sequential','Choose one mixed-methods sequence.'],['Explanatory sequential','Exploratory sequential','Choose one mixed-methods sequence.']];
+function conflictFor(a,sel){for(const [x,y,r] of CONFLICT){if(x===a&&sel.includes(y))return r;if(y===a&&sel.includes(x))return r}return ''}
+
+const PORDER=['R','O','S','E'];
+const PCOL={R:'--rose',O:'--amber',S:'--leaf',E:'--plum'};
+const PNAME={R:'Resources',O:'Outreach',S:'Service',E:'Education'};
+const PET={
+ rose:{R:'People can\'t find or use the information they need',O:'People don\'t know we\'re here, or don\'t come in',S:'People need a person or product to guide them',E:'People need to learn new skills or gain cultural confidence'},
+ research:{R:'The knowledge exists, but people can\'t find or use it',O:'The people affected are missing from the research, or never hear about it',S:'People need a program, tool, or person to act on it',E:'People, or the field, need new understanding or skills'}
+};
+const FOCUS={R:{'Newcomer guides':['Campus and city guide','First-week checklist','Local services map','Welcome kit'],'Plain-language updates':['Legal and policy updates','Credential guides','Tax and benefits explainers','Translated FAQs']},O:{'Partnerships':['Resettlement agencies','International offices','Cultural centers','Student groups','Community members'],'Showing up':['Orientations','Community gatherings','Pop-up tables','Mobile services']},S:{'Language access':['Translation tech at the desk','Multilingual signs','Bilingual staff hours','Multilingual forms'],'Navigation and referral':['Warm private handoffs','Navigator hours','Referral directory','Staff referral script']},E:{'Information literacy':['Spot the scam','News literacy','Reading official documents','Digital skills'],'Bicultural programming':['Conversation circles','Heritage events','Oral history','Heritage-language story time']}};
+const RPROD={R:'datasets, measures, toolkits, reviews, policy briefs, open-source tools',O:'studies with understudied groups, PAR, community reports, public scholarship, exhibits',S:'interventions, program evaluations, apps and devices, applied tools',E:'theory-building studies, curricula, trainings, teaching research'};
+
+/* ================= Blank data and examples ================= */
+function blankRose(){return{spark:'',interest:2,rel:[],bring:[],miss:[],petals:{R:25,O:25,S:25,E:25},focus:'',actions:[],who:[],whoOther:'',ripple:[],barrier:[],outcome:[],timeline:'',reachC:'',reachS:'',owner:'',partner:[],policy:[],level:'',libText:'',informed:[],credit:[],compensate:[],goalText:'',integration:'',vtext:'',words:[],values:[],vw:{},vs:{},sub:{},paths:[],cw:{values:20,interest:10,pos:10,ethics:15,like:10,common:10,reach:5,feas:10,ripple:10},ow:{sat:33,con:33,suc:34},like:null,sat:null,pitch:{},mine:'',firstStep:'',colead:''}}
+function blankRes(){return{spark:'',sparkWhy:'',product:'',scale:'',timeline:'',interest:2,stage:'',rel:[],bring:[],miss:[],learnFrom:[],petals:{R:25,O:25,S:25,E:25},barrierSpec:'',who:[],whoSpec:'',needs:[],needR:2,ripple:[],theories:[],theoryOwn:'',theoryWhy:'',theoryFit:2,gap:'',gapOpen:2,outcomes:[],outcomeSpec:'',gear:'',stance:'',lensv:'',approaches:[],methods:[],mstat:{},designSpec:'',shapes:'',credit:[],compensate:[],data:'',advisor:'',irb:'',cost:'',returnPlan:[],outFit:2,vtext:'',words:[],values:[],vw:{},vs:{},sub:{},paths:[],cw:{values:20,interest:10,pos:10,ethics:10,like:10,spec:10,need:5,gap:5,theory:5,method:5,product:5,feas:5,ripple:5},ow:{sat:33,con:33,suc:34},like:null,sat:null,pitch:{},mine:''}}
+const EX={
+ calli:{lens:'rose',name:'Calligraphy night',d:Object.assign(blankRose(),{
+  spark:'A monthly calligraphy night where people letter in every script our community writes.',interest:4,rel:['I want to serve them','I\'m learning about them'],bring:['Space','Staff time','Collections or materials'],miss:['Outsider blind spots','Language gaps'],
+  petals:{R:10,O:25,S:5,E:60},focus:'E|Bicultural programming',actions:['Heritage events','Conversation circles'],
+  who:['Multilingual and English-learning residents','Older adults'],whoOther:'Heritage-script writers and left-handed letterers',
+  ripple:[{name:'Left-handed writers',level:'People',depth:4},{name:'Heritage-script learners (Bangla, Arabic, Chinese, Devanagari)',level:'Place',depth:4},{name:'Older adults',level:'People',depth:3},{name:'Kids learning handwriting',level:'People',depth:2}],
+  barrier:['Representation (staff, collections)','Awareness'],outcome:['Program attendance','Belonging or satisfaction rating'],timeline:'3 months',
+  owner:'Programming or outreach',partner:['Cultural centers','Student groups'],policy:['Compensated co-design'],level:L.levelRose[0],
+  libText:'Students in the Bangla and Arabic clubs said they rarely see their scripts anywhere on campus.',informed:['Community members named the need','Community knowledge and practices lead','Co-designed with community members'],credit:['Named as co-creators','Acknowledged in materials and signage'],compensate:['Stipend or honorarium','Food, childcare, or transit covered'],
+  goalText:'A welcome wall handwritten in every language our community speaks',integration:L.integration[0],
+  vtext:'',words:[{text:'Everyone feels welcome in their own language',value:'Belonging'}],values:['Belonging','Dignity','Agency','Equity'],
+  vw:{Belonging:45,Dignity:25,Agency:20,Equity:10},vs:{Belonging:4,Dignity:3,Agency:2,Equity:2},sub:{Belonging:['Welcomed in their own language']},paths:[{from:'Belonging',to:'Dignity',str:.6}],like:4,sat:4,
+  pitch:{'Community partners':'Teach your script; we credit and pay you.','Administrators':'Low cost, cross-cultural, visible.','Frontline staff':'A fun night with built-in regulars.'},
+  mine:'Ink Night: once a month our study room becomes a lettering table where heritage-script writers teach, lefties finally get tips that work for them, and the welcome wall grows one language at a time.',firstStep:'Ask the Bangla and Arabic student groups if they would co-host the first night, and offer a stipend.'})},
+ jobs:{lens:'rose',name:'Job-seeker help desk',d:Object.assign(blankRose(),{
+  spark:'People keep asking the desk for help finishing online job applications.',interest:3,rel:['I serve this community now','Close tie (family, friends)'],bring:['Trust and access','Staff time','Partnerships'],miss:['Power gaps','Outsider blind spots'],
+  petals:{R:25,O:15,S:50,E:10},focus:'S|Navigation and referral',actions:['Navigator hours','Referral directory'],who:['Low-income residents','Veterans','Military service members and families'],whoOther:'Residents applying for jobs after a layoff, including veterans moving into civilian work and military spouses',
+  barrier:['Digital access','Trust and systems (privacy, unfamiliar systems)'],outcome:['Completed referrals','Skill gain'],timeline:'3 months',
+  owner:'Reference or information',partner:['Employers','Community members directly'],policy:['Privacy policy'],level:L.levelRose[1],
+  libText:'Job seekers said online applications time out before they finish, and they feel rushed asking for help at a busy desk.',informed:['Community members named the need','Co-designed with community members','Community co-evaluates the outcome'],credit:['A decision-making seat (advisory group)','Acknowledged in materials and signage'],compensate:['Hourly pay','Food, childcare, or transit covered'],
+  goalText:'Every job seeker who comes in leaves with a submitted application and a next step',
+  words:[{text:'Fair access to good jobs',value:'Equity'}],values:['Agency','Equity','Dignity','Belonging'],
+  vw:{Agency:40,Equity:30,Dignity:20,Belonging:10},vs:{Agency:4,Equity:3,Dignity:3,Belonging:2},sub:{Agency:['Navigates independently']},paths:[{from:'Equity',to:'Agency',str:.6},{from:'Agency',to:'Dignity',str:.6}],like:3,sat:3,
+  pitch:{'Community partners':'You tell us where applications break down, you co-run the hour, and you are paid.','Administrators':'A measurable service for residents facing layoffs, with results in three months.','Frontline staff':'A set hour, a referral list, and permission to take the time people need.'},
+  mine:'A weekly job-seeker hour, co-planned with residents and a local workforce partner, where people finish applications with a navigator and leave with a next step.',firstStep:'Invite three recent job seekers, paid for their time, to show us where online applications break down.'})},
+ support:{lens:'research',name:'Campus support structures over time (archival)',d:Object.assign(blankRes(),{
+  spark:'How have universities\' commitments to underrepresented students, and the support structures behind them, changed over twenty years?',product:'Dissertation',scale:L.scale[3],timeline:'2+ years',interest:4,stage:'Doctoral',rel:['Lived experience','Work or volunteer experience'],bring:['Cultural knowledge','Methods skill','Professional insight'],miss:['Insider assumptions','Emotional closeness to the topic'],learnFrom:['Advisor','Scholars from the community'],
+  petals:{R:40,O:30,S:5,E:25},barrierSpec:'Universities publish commitments, but few track whether the offices, funding, and student groups behind them last.',
+  who:['Racially and ethnically minoritized groups','Grad students'],whoSpec:'Graduate students from underrepresented groups and the campus offices meant to support them',needs:['A specific community','Organizations','Policymakers'],needR:4,
+  theories:['Structuration theory (micro to macro)','Social dominance theory'],theoryWhy:'Structuration theory explains how everyday campus decisions and institutional structures shape each other; social dominance theory asks which practices keep or reduce hierarchy.',theoryFit:4,gap:'Applied or translation gap',gapOpen:3,
+  outcomes:['Data people can use','Policy or practice change'],outcomeSpec:'A twenty-year record that administrators and student groups can use to argue for lasting support structures.',
+  gear:'Archive gloves',stance:'Researcher-led',lensv:'Etic',approaches:['Archival or historical','Longitudinal'],methods:['Institutional records','Policy documents','Content analysis','Trend analysis','Repeated records over time'],mstat:{'Institutional records':'have','Policy documents':'have','Content analysis':'have','Trend analysis':'learn','Repeated records over time':'have'},designSpec:'Code twenty years of public reports and policies from a set of universities, and track which support structures appear, grow, or disappear.',
+  shapes:'Stakeholders consulted (committee, institutions, partners)',credit:['Acknowledged in materials','Advisory or committee role recognized'],compensate:['Not applicable: no participants'],data:'Have it',advisor:'Aligned',irb:'Not human subjects',cost:'None',returnPlan:['Policy brief','Shared data'],outFit:4,
+  words:[{text:'Lasting support for underrepresented students',value:'Equity'}],values:['Equity','Dignity','Growth','Recognition'],vw:{Equity:35,Dignity:25,Growth:25,Recognition:15},vs:{Equity:4,Dignity:3,Growth:3,Recognition:3},paths:[{from:'Equity',to:'Dignity',str:.6}],like:4,sat:4,
+  mine:'How did universities\' support structures for underrepresented graduate students change from 2005 to 2025, and which ones lasted?'})},
+ bystander:{lens:'research',name:'Speaking up: bystander microinterventions',d:Object.assign(blankRes(),{
+  spark:'Most students say they would speak up when a classmate gets a microaggression, but few actually do. Why?',product:'Class paper',scale:L.scale[1],timeline:'3 months',interest:4,stage:'Upper-division course',rel:['Lived experience','Intellectual curiosity'],bring:['Fresh eyes','Community access'],miss:['Insider assumptions','Emotional closeness to the topic'],learnFrom:['Peers','Advisor'],
+  petals:{R:10,O:10,S:30,E:50},barrierSpec:'Students notice microaggressions but freeze because they are unsure it is their place, or what to say.',
+  who:['Undergraduates'],whoSpec:'Undergraduates in large intro courses who witness microaggressions',needs:['Individuals\' wellbeing','Schools and educators'],needR:3,
+  theories:['Bystander effect and the 5-step model','Microaggressions and microinterventions'],theoryWhy:'The 5-step model shows where students get stuck between noticing and acting; microinterventions give them concrete words to use.',theoryFit:4,gap:'Applied or translation gap',gapOpen:3,
+  outcomes:['Skills people can use','Stronger community ties'],outcomeSpec:'Students who take a short workshop feel more ready to respond, and say so a month later.',
+  gear:'Lab coat',stance:'Researcher-led',lensv:'Etic',approaches:['Quasi-experimental','Interviews and focus groups','Explanatory sequential'],methods:['Pre/post comparison','Existing groups compared','Focus groups','t-test or ANOVA','Thematic analysis'],mstat:{'Pre/post comparison':'learn','Existing groups compared':'learn','Focus groups':'learn','t-test or ANOVA':'have','Thematic analysis':'learn'},designSpec:'Compare readiness to intervene in two course sections, one with a microintervention workshop, then hold focus groups to explain the results.',
+  shapes:'Community consulted',credit:['Acknowledged in materials'],compensate:['Course credit'],data:'Can collect',advisor:'Aligned',irb:'Exempt',cost:'None',returnPlan:['Workshop'],outFit:4,
+  words:[{text:'Classmates looking out for each other',value:'Belonging'}],values:['Belonging','Equity','Growth','Dignity'],vw:{Belonging:35,Equity:30,Growth:20,Dignity:15},vs:{Belonging:3,Equity:4,Growth:3,Dignity:3},paths:[{from:'Equity',to:'Belonging',str:.6}],like:4,sat:3,
+  pitch:{'Advisor':'A feasible pre/post design with a clear follow-up.','The field':'Tests whether microintervention training moves students past the 5-step sticking points.','Community':'A workshop any course can reuse.','Funders':'A low-cost way to make classrooms safer to speak up in.'},
+  mine:'Does a short microintervention workshop help undergraduates move from noticing a microaggression to responding, and what still holds them back?'})},
+ grat:{lens:'research',name:'Handwritten gratitude',d:Object.assign(blankRes(),{
+  spark:'Handwriting a letter feels different from typing one. Why?',sparkWhy:'I do calligraphy and it calms me in a way typing never has.',product:'Honors thesis',scale:L.scale[1],timeline:'6 months',interest:4,stage:'Honors',rel:['Intellectual curiosity','Lived experience'],bring:['Creative skill','Fresh eyes'],miss:['Insider assumptions','Emotional closeness to the topic'],learnFrom:['Advisor','Peers'],
+  petals:{R:5,O:5,S:35,E:55},barrierSpec:'Students know gratitude helps, but screen fatigue makes typed exercises feel like more homework.',
+  who:['Undergraduates'],whoSpec:'Undergraduates who report screen fatigue',needs:['Individuals\' wellbeing','Schools and educators'],needR:3,
+  ripple:[{name:'Students with screen fatigue',level:'People',depth:4},{name:'Left-handed writers',level:'People',depth:3},{name:'Campus wellness centers',level:'Place',depth:2}],
+  theories:['Positive psychology (PERMA)'],theoryOwn:'Broaden-and-build (Fredrickson)',theoryWhy:'PERMA frames gratitude as positive emotion and relationships; broaden-and-build says positive emotion widens what people notice and do.',theoryFit:3,gap:'Theory untested in this context',gapOpen:3,
+  outcomes:['Better wellbeing','Skills people can use'],outcomeSpec:'Students leave with a gratitude practice that feels restful.',
+  gear:'Lab coat',stance:'Researcher-led',lensv:'Etic',approaches:['Experimental','Longitudinal'],methods:['Lab experiment','Diary or experience sampling','t-test or ANOVA','MLM'],mstat:{'Lab experiment':'have','Diary or experience sampling':'learn','t-test or ANOVA':'have',MLM:'learn'},designSpec:'Randomly assign students to handwrite or type gratitude letters for two weeks, with daily mood check-ins.',
+  shapes:'Community consulted',credit:['Acknowledged in materials'],compensate:['Course credit'],data:'Can collect',advisor:'Somewhat',irb:'Exempt',cost:'Low',returnPlan:['Workshop'],outFit:4,
+  words:[{text:'Mental health for students',value:'Wellbeing'}],values:['Growth','Creativity','Wellbeing','Recognition'],vw:{Growth:40,Creativity:30,Wellbeing:20,Recognition:10},vs:{Growth:4,Creativity:3,Wellbeing:2,Recognition:2},paths:[{from:'Growth',to:'Creativity',str:.6},{from:'Creativity',to:'Wellbeing',str:.6}],like:4,sat:4,
+  mine:'Does handwriting gratitude letters improve daily mood more than typing them, and does it differ for left-handed writers?'})},
+ cube:{lens:'research',name:'Soil-moisture CubeSat',d:Object.assign(blankRes(),{
+  spark:'I want to build a CubeSat that measures soil moisture from orbit.',sparkWhy:'Building hardware that flies is the most fun problem I know.',product:'Tool, app, or device',scale:L.scale[3],timeline:'2+ years',interest:4,stage:'Industry or engineering team',rel:['Intellectual curiosity','Work or volunteer experience'],bring:['Technical skill','Fresh eyes'],miss:[],learnFrom:['Elders or knowledge keepers','Community members'],
+  petals:{R:35,O:10,S:45,E:10},barrierSpec:'Field-level soil-moisture data is coarse, costly, and rarely shaped by the people who farm or steward the land.',
+  who:['Rural communities','Indigenous communities'],whoSpec:'Small farms and tribal land stewards in drought-prone areas',needs:['A specific community','Policymakers'],needR:4,
+  ripple:[{name:'Small farms in drought-prone regions',level:'City and state',depth:4},{name:'Tribal land and water stewards',level:'Nation',depth:4},{name:'Students on the build team',level:'People',depth:3},{name:'Disaster responders',level:'Nation',depth:2}],
+  theories:['Indigenous psychology','Diffusion of innovations'],theoryWhy:'Indigenous psychology centers stewards\' own knowledge of the land; diffusion of innovations explains whether a new tool is taken up.',theoryFit:3,gap:'Applied or translation gap',gapOpen:3,
+  outcomes:['A tool in use','Data people can use'],outcomeSpec:'Farmers and stewards check field-level moisture and use it to plan water use.',
+  gear:'Field boots',stance:'Community-based (SAPR)',lensv:'Emic',approaches:['Design and engineering','Interviews and focus groups','Convergent'],methods:['Prototype build','Sensor data','Field testing','Focus groups','Thematic analysis','Community-governed data'],mstat:{'Prototype build':'have','Sensor data':'have','Field testing':'learn','Focus groups':'learn','Thematic analysis':'learn'},designSpec:'Build and fly the sensor while focus groups with stewards decide what it measures and who holds the data.',
+  shapes:'Community co-defines',credit:['Stakeholders own or share the data','Co-authors or co-presenters'],compensate:['Stipend or honorarium'],data:'Can collect',advisor:'Aligned',irb:'Expedited',cost:'Needs funding',returnPlan:['Shared data','Community report','Open-source tool'],outFit:3,
+  words:[{text:'Climate action',value:'Sustainability'},{text:'Food security',value:'Equity'}],values:['Creativity','Growth','Sustainability','Equity'],vw:{Creativity:30,Growth:20,Sustainability:30,Equity:20},vs:{Creativity:4,Growth:4,Sustainability:2,Equity:2},paths:[{from:'Growth',to:'Sustainability',str:.6},{from:'Sustainability',to:'Equity',str:.6}],like:4,sat:4,
+  mine:'Can a low-cost CubeSat, co-designed with farmers and tribal land stewards, give them field-level soil-moisture data they trust and use?'})}
+};
+
+/* ================= State ================= */
+const LENSES=['rose','research'];
+const SOON={
+ art:{name:'Creative',badge:'In the kitchen',word:'In the kiln',line:'Shaped, glazed, and firing: soon you\'ll choose a medium and shape a creative project through ROSE',pot:'vase',ing:['Petal: what your art does for people','Who: your audience, and your positionality','What: the story, the meaning, and the medium (hover to learn each one)','How: your process, and how collaborators are credited and paid','Why: your values, in your own words']},
+ career:{name:'Career and Personal Development',badge:'In the kitchen',word:'Still rising',line:'This dough is proofing. Give it a little warmth and time, and it doubles.',pot:'bread',ing:['Your values map from the other tabs','Strengths, skills, and positionality','Life-stage priorities, weighted your way','Monthly coaching check-ins']},
+ relations:{name:'Relationship Values',badge:'In the kitchen',word:'Marinating',line:'Flavors are soaking in: professional and personal relationships, weighed by what each one brings to your values.',pot:'bowl',ing:['Professional: mentors, collaborators, teams','Personal: family, friends, partners','Reciprocity and boundaries','Value paths between people']},
+ lead:{name:'Leadership and Conflict Resolution',badge:'In the kitchen',word:'Reducing',line:'Like a good sauce, a conflict reduces to what matters most. This one is still on the stove.',pot:'pot',ing:['Each person\'s values mapped with the same engine','A superordinate goal both sides want (Sherif)','Equal voice, cooperation, and support (Allport)','Credit, repair, and next steps everyone can live with']},
+ grief:{name:'Grief Processing (Trauma-Informed)',badge:'Being prepared with care',word:'Taking root',line:'Some things grow at their own pace. This space is being prepared slowly and with care.',pot:'sprout',ing:['Your pace: pause or stop anytime','Trauma-informed: safety, trust, choice, collaboration, and cultural humility','Values as anchors: what the person or thing you lost cared about, and what you carry forward','Clear pointers to professional and crisis support','Pairs with one-on-one consultation']},
+ discover:{name:'Self-Discovery: Submissions',badge:'In the kitchen',word:'Plating',line:'Getting your work ready to serve: soon you\'ll find where to submit it, matched to your values',pot:'plate',ing:['Open calls across art forms: poetry, fiction, visual art, mixed media, interdisciplinary, music, film, performance','Calls for papers, posters, and proposals from journals, conferences, and associations','Filters: free or fee, paid or funded, annual or one-time, career stage','Matched to your values from ROSE','Deadline reminders and a submission tracker']},
+ daily:{name:'Daily Decision Playground',badge:'In the kitchen',word:'Steeping',line:'Like a good cup of chai, this one needs a few more minutes.',pot:'cup',ing:['A 60-second version of the same engine','Three quick sliders','Today\'s top value','One tiny next step']},
+ shop:{name:'Values-Based Shopping',badge:'In the kitchen',word:'Slow-simmering',line:'Low heat, lots of flavor. You define what ethical means to you, and the search shows what companies are doing about it.',pot:'pot',ing:['Your values, from your ROSE card or a quick values check','Companies rated by you: aligned, neutral, or misaligned with each value you name','What each company does, linked to its sources','Where you can shop, alongside what to skip','Artist discovery: find art and artists to support, matched to your values','Micro to macro (structuration theory, Giddens): watch how everyday purchases and company practices shape each other, from your cart to your community to the world']}};
+const TABS=[['rose','Amar Basha: Third Space'],['product','Build Your Product'],['self','Self-Development'],['daily','Daily Decision Playground'],['shop','Values-Based Shopping']];
+const PRODSUB=[['research','Scientific'],['art','Creative']];
+const SELFSUB=[['career','Career and Personal Development'],['relations','Relationship Values'],['lead','Leadership and Conflict Resolution'],['grief','Grief Processing (Trauma-Informed)'],['discover','Self-Discovery: Submissions']];
+let S={tab:'research',mode:'quick',step:{rose:0,research:0},data:{rose:structuredClone(EX.calli.d),research:structuredClone(EX.cube.d)},exName:{rose:'calli',research:'cube'},saved:[],open:{},note:'',lastTotal:null,j:{scene:0,playing:false,view:'journey'}};
+try{const raw=localStorage.getItem('vbdm.student.v3');if(raw){const p=JSON.parse(raw);if(p&&p.data&&p.data.rose&&p.data.research)S=Object.assign(S,p,{j:{scene:0,playing:false,view:'journey'}})}}catch(e){}
+function save(){try{localStorage.setItem('vbdm.student.v3',JSON.stringify(S))}catch(e){}}
+const lens=()=>S.tab;
+const D=()=>S.data[S.tab];
+function get(o,p){return p.split('.').reduce((a,k)=>a==null?a:a[k],o)}
+function setp(o,p,v){const ks=p.split('.');let a=o;for(let i=0;i<ks.length-1;i++){if(a[ks[i]]==null)a[ks[i]]={};a=a[ks[i]]}a[ks[ks.length-1]]=v}
+
+/* ================= Field helpers ================= */
+const F={
+ text:(k,label,ph='',long=false,hint='')=>`<div class="field"><label for="${fid(k)}">${label}</label>${hint?`<span class="hint">${hint}</span>`:''}${long?`<textarea id="${fid(k)}" data-k="${k}" placeholder="${esc(ph)}">${esc(get(D(),k))}</textarea>`:`<input type="text" id="${fid(k)}" data-k="${k}" placeholder="${esc(ph)}" value="${esc(get(D(),k))}">`}</div>`,
+ sel:(k,label,opts,hint='')=>`<div class="field"><label for="${fid(k)}">${label}</label>${hint?`<span class="hint">${hint}</span>`:''}<select id="${fid(k)}" data-k="${k}"><option value="">Choose one</option>${opts.map(o=>`<option${get(D(),k)===o?' selected':''}>${esc(o)}</option>`).join('')}</select></div>`,
+ chips:(k,label,opts,max=0,hint='',dis=()=>'',sug=()=>false,tip=()=>'')=>{const cur=get(D(),k)||[];return `<div class="field"><span class="lab">${label}${max?` <span class="hint">(up to ${max})</span>`:''}</span>${hint?`<span class="hint">${hint}</span>`:''}<div class="chips">${opts.map(o=>{const r=cur.includes(o)?'':dis(o);return `<button type="button" class="chip${sug(o)?' sug':''}" data-chip="${k}" data-v="${esc(o)}" data-max="${max}" aria-pressed="${cur.includes(o)}"${r?` disabled title="${esc(r)}"`:''}${tip(o)&&!r?` data-tip="${esc(tip(o))}"`:''}>${esc(o)}</button>`}).join('')}</div></div>`},
+ one:(k,label,opts,hint='',tip=()=>'')=>{const cur=get(D(),k);return `<div class="field"><span class="lab">${label}</span>${hint?`<span class="hint">${hint}</span>`:''}<div class="chips">${opts.map(o=>`<button type="button" class="chip" data-one="${k}" data-v="${esc(o)}" aria-pressed="${cur===o}"${tip(o)?` data-tip="${esc(tip(o))}"`:''}>${esc(o)}</button>`).join('')}</div></div>`},
+ rate:(k,label,sub='')=>{const raw=get(D(),k);const v=raw??2;return `<div class="rate"><label class="rl" for="${fid(k)}">${label}${sub?`<br><span class="hint">${sub}</span>`:''}</label><output data-anchor="${k}">${raw==null?'Not rated yet':v+' · '+ANCH[v]}</output><input type="range" min="0" max="4" step="1" id="${fid(k)}" data-k="${k}" value="${v}"></div>`},
+ alloc:(k,label,items,hint='')=>`<div class="field"><span class="lab">${label}</span>${hint?`<span class="hint">${hint}</span>`:''}<div class="alloc">${items.map(it=>`<div class="arow"><label class="al" for="${fid(k+'.'+it.id)}">${esc(it.label)}${it.sub?`<small>${esc(it.sub)}</small>`:''}</label><span class="share" data-share="${k}" data-id="${esc(it.id)}"></span><input type="range" min="0" max="100" step="5" id="${fid(k+'.'+it.id)}" data-k="${k}.${it.id}" value="${get(D(),k+'.'+it.id)??0}"></div>`).join('')}</div></div>`,
+ num:(k,label)=>`<div class="field"><label for="${fid(k)}">${label}</label><input type="number" min="0" max="100" id="${fid(k)}" data-k="${k}" value="${esc(get(D(),k))}"></div>`,
+ list:(inner,label='',hint='')=>`<div class="field">${label?`<span class="lab">${label}</span>`:''}${hint?`<span class="hint">${hint}</span>`:''}<div class="ratelist">${inner}</div></div>`
+};
+function deeper(id,inner,label='Go deeper (optional)',defOpen=false){const key=lens()+':'+id;const open=S.open[key]??(S.mode==='deep'||defOpen);return `<details class="deeper" data-open-key="${key}"${open?' open':''}><summary>${label}</summary><div class="deepbody">${inner}</div></details>`}
+const flag=t=>`<div class="flag">${t}</div>`;
+function rippleBlock(){const d=D();return `<div class="field"><span class="hint">Name every group your idea could touch, from the people in the room (People) to the wider world (Nation). Rate how deeply each benefits.</span><div class="rows">${d.ripple.map((r,i)=>`<div class="rrow"><input type="text" aria-label="Group" data-k="ripple.${i}.name" value="${esc(r.name)}" placeholder="Group"><select aria-label="Ring" data-k="ripple.${i}.level">${LEVELS.map(l=>`<option${r.level===l?' selected':''}>${l}</option>`).join('')}</select><div><span class="dl" data-anchor="ripple.${i}.depth">Depth ${r.depth} · ${ANCH[r.depth]}</span><input type="range" min="0" max="4" step="1" aria-label="Depth of benefit" data-k="ripple.${i}.depth" value="${r.depth}"></div><button class="x" data-act="delRipple" data-i="${i}" aria-label="Remove group">×</button></div>`).join('')}</div><div><button class="btn ghost" data-act="addRipple">Add a group</button></div></div>`}
+function petalShares(d){const t=PORDER.reduce((a,p)=>a+(+d.petals[p]||0),0)||1;const sh={};PORDER.forEach(p=>sh[p]=(+d.petals[p]||0)/t);const start=PORDER.slice().sort((a,b)=>sh[b]-sh[a])[0];const support=PORDER.filter(p=>p!==start&&sh[p]>=.25);return{sh,start,support}}
+function petalReadout(){const d=D();const ps=petalShares(d);let h=`Starting petal: <strong>${PNAME[ps.start]}</strong>${ps.support.length?` · supported by ${ps.support.map(p=>PNAME[p]).join(' and ')}`:''}`;if(lens()==='research')h+=`<br><span class="hint">${PNAME[ps.start]} products include ${RPROD[ps.start]}.</span>`;return h}
+const allowedValues=()=>V_ALL;
+function detectHTML(){const d=D();const res=detectValues(d.vtext,allowedValues());if(!d.vtext||d.vtext.trim().length<3)return '<span class="hint">Type a few words and the compass will suggest where your value fits.</span>';
+ if(!res.length)return `<span class="hint">No match yet. Pick from the list below; each value shows what it means.</span>`;
+ return res.map(r=>r.ok?`<div class="detect"><span>"${esc(d.vtext.trim())}" falls under <strong class="calc-c">${esc(r.p)}</strong> (${esc(VDEF[r.p].toLowerCase())})${r.s?`, with a path to <strong class="calc-c">${esc(r.s)}</strong>`:''}. Does this fit?</span><button class="btn ghost sm" data-act="addValue" data-v="${esc(r.p)}" data-s="${esc(r.s)}">Add ${esc(r.p)}</button></div>`:`<div class="detect"><span>"${esc(d.vtext.trim())}" sounds like <strong>${esc(r.p)}</strong>, a value for you personally. In a third space project, name what it does for the community.</span></div>`).join('')}
+function valuesBlock(){const d=D();const vals=d.values;const allowed=allowedValues();let h=`<div class="field"><label for="f_vtext">What do you care about, in your own words?</label><span class="hint">e.g., eliminating poverty, everyone feels welcome, climate action</span><input type="text" id="f_vtext" data-k="vtext" value="${esc(d.vtext)}" placeholder="Type a value in your words"><div id="detect" class="detectbox">${detectHTML()}</div></div>`;
+ h+=`<div id="sugbox">${suggestBox()}</div>`;
+ if(d.words.length)h+=`<div class="plist">${d.words.map((w,i)=>`<div class="pitem"><span><span class="you">"${esc(w.text)}"</span> → <span class="calc-c">${esc(w.value)}</span></span><button class="x" data-act="delWord" data-i="${i}" aria-label="Remove phrase">×</button></div>`).join('')}</div>`;
+ h+=`<div class="field"><span class="lab">Your values <span class="hint">(choose up to 4 of 10)</span></span><span class="hint">Dignity, belonging, agency, and equity are the ROSE core four.</span>${[['For people and the planet',V_COMMUNITY],['For me and my work',V_SELF]].map(([g,list])=>`<div class="group">${g?`<span class="gname">${g}</span>`:''}<div class="chips">${list.map(v=>`<button type="button" class="chip" data-chip="values" data-v="${esc(v)}" data-max="4" aria-pressed="${vals.includes(v)}" title="${esc(VDEF[v])}">${esc(v)} <small>· ${esc(VDEF[v].toLowerCase())}</small></button>`).join('')}</div></div>`).join('')}</div>`;
+ if(!vals.length)return h;
+ vals.forEach(v=>{if(d.vw[v]==null)d.vw[v]=25;if(d.vs[v]==null)d.vs[v]=2});
+ h+=F.alloc('vw','How much does each value matter to you here?',vals.map(v=>({id:v,label:v})),'Shares update as you move.');
+ h+=F.list(vals.map(v=>F.rate('vs.'+v,v)).join(''),'How directly does this project serve each value?');
+ h+=`<div class="field"><span class="lab">Connect your values</span><span class="hint">Draw a path when serving one value also serves another. The compass adds that indirect effect, the way SEM traces paths.</span>
+ <div class="pathbuild"><select id="pFrom" aria-label="From value">${vals.map(v=>`<option>${esc(v)}</option>`).join('')}</select><span class="arrow">feeds</span><select id="pTo" aria-label="To value">${vals.map((v,i)=>`<option${i===1?' selected':''}>${esc(v)}</option>`).join('')}</select><select id="pStr" aria-label="Strength"><option value=".3">Weak</option><option value=".6" selected>Moderate</option><option value=".9">Strong</option></select><button class="btn ghost" data-act="addPath">Add path</button></div>
+ <div class="plist">${d.paths.filter(p=>vals.includes(p.from)&&vals.includes(p.to)).map(p=>`<div class="pitem"><span>${esc(p.from)} → ${esc(p.to)} · ${p.str>=.9?'Strong':p.str>=.6?'Moderate':'Weak'}</span><button class="x" data-act="delPath" data-i="${d.paths.indexOf(p)}" aria-label="Remove path">×</button></div>`).join('')||'<span class="hint">No paths yet</span>'}</div></div>`;
+ return h}
+function subWhys(){const d=D();if(!d.values.length)return '';return `<div class="field"><span class="lab">Why does each value matter here?</span><div class="valgrid">${d.values.map(v=>`<div class="valblock"><strong>${esc(v)}</strong><div class="chips">${(SUB[v]||[]).map(s=>`<button type="button" class="chip" data-chip="sub.${v}" data-v="${esc(s)}" data-max="0" aria-pressed="${(d.sub[v]||[]).includes(s)}">${esc(s)}</button>`).join('')}</div></div>`).join('')}</div></div>`}
+/* ---- Suggestions: values and positionality, generated from the card ---- */
+const BAR_V={'Cost and rules (fines, fees, ID)':['Equity'],'Time and access (hours, transit)':['Equity'],'Language':['Belonging','Dignity'],'Trust and systems (privacy, unfamiliar systems)':['Wellbeing','Dignity'],'Histories of exclusion':['Equity','Belonging'],'Representation (staff, collections)':['Belonging','Dignity'],'Awareness':['Equity'],'Digital access':['Equity','Agency']};
+const OUT_V={'Use by the named community':['Equity'],'Completed referrals':['Agency'],'Guides used':['Agency'],'Program attendance':['Belonging'],'Skill gain':['Agency'],'Belonging or satisfaction rating':['Belonging'],'New partnership':['Belonging'],'Policy adopted':['Equity'],'Staff trained':['Dignity']};
+const PET_V={rose:{R:'Agency',O:'Belonging',S:'Dignity',E:'Agency'},research:{R:'Equity',O:'Belonging',S:'Wellbeing',E:'Growth'}};
+const GAP_V={'Understudied population':'Equity','Theory untested in this context':'Growth','Method gap':'Growth','Contradictory findings':'Growth','Applied or translation gap':'Equity','Replication needed':'Growth','New measure needed':'Growth'};
+const NEED_V={"Individuals' wellbeing":'Wellbeing','A specific community':'Belonging','Schools and educators':'Agency','Clinicians and practitioners':'Wellbeing','Organizations':'Equity','Policymakers':'Equity','The field (theory)':'Growth'};
+function suggestValues(){const d=D();const sc={};const why={};const add=(v,w,r)=>{if(!allowedValues().includes(v))return;sc[v]=(sc[v]||0)+w;(why[v]=why[v]||[]).push(r)};
+ const ps=petalShares(d);add(PET_V[lens()][ps.start],2,`${PNAME[ps.start]} petal`);
+ if(lens()==='rose'){d.barrier.forEach(b=>(BAR_V[b]||[]).forEach(v=>add(v,1.5,`barrier: ${b.split(' (')[0].toLowerCase()}`)));d.outcome.forEach(o=>(OUT_V[o]||[]).forEach(v=>add(v,1,`outcome: ${o.toLowerCase()}`)))}
+ else{if(GAP_V[d.gap])add(GAP_V[d.gap],1.5,`gap: ${d.gap.toLowerCase()}`);d.needs.forEach(n=>NEED_V[n]&&add(NEED_V[n],1,`benefits: ${n.toLowerCase()}`));(d.outcomes||[]).forEach(o=>OUTS_V[o]&&add(OUTS_V[o],1.5,`outcome: ${o.toLowerCase()}`));detectValues(d.barrierSpec+' '+d.outcomeSpec,allowedValues()).forEach(r=>r.ok&&add(r.p,1,'your barrier and outcome words'))}
+ detectValues(d.spark,allowedValues()).forEach(r=>r.ok&&add(r.p,1.5,'your idea\'s words'));
+ return Object.keys(sc).sort((a,b)=>sc[b]-sc[a]).slice(0,4).map(v=>({v,why:[...new Set(why[v])].slice(0,2).join('; ')}))}
+function suggestBox(){const d=D();const sg=suggestValues();if(!sg.length)return '<p class="hint">Fill in Petal, Who, and What, and the compass will suggest values from your card.</p>';
+ return `<div class="field"><span class="lab">Suggested from your card</span><span class="hint">Based on what you built so far. Add any that fit; skip any that don't.</span><div class="detectbox">${sg.map(s=>`<div class="detect"><span><strong class="calc-c">${esc(s.v)}</strong> · ${esc(VDEF[s.v].toLowerCase())} <span class="hint">(from ${esc(s.why)})</span></span>${d.values.includes(s.v)?'<span class="ok">Chosen</span>':`<button class="btn ghost sm" data-act="addSugValue" data-v="${esc(s.v)}">Add ${esc(s.v)}</button>`}</div>`).join('')}</div></div>`}
+function suggestMiss(){const d=D();const r=d.rel||[];const out=new Set();
+ if(lens()==='rose'){const member=r.some(x=>/part of|Close tie/.test(x));const outside=r.some(x=>/want to|learning/.test(x))||!member;
+  if(member)out.add('Insider assumptions');if(outside)out.add('Outsider blind spots');if(r.some(x=>/serve this community now/.test(x)))out.add('Power gaps');
+  if(d.barrier.includes('Language'))out.add('Language gaps');if(d.barrier.includes('Histories of exclusion'))out.add('Past harm by our institution');if(!d.informed.length&&!member)out.add('No current relationship')}
+ else{if(r.some(x=>/Lived|Community member|Close tie/.test(x))){out.add('Insider assumptions');out.add('Emotional closeness to the topic')}
+  if(r.some(x=>/curiosity|Ally/.test(x))){out.add('Outsider blind spots');out.add('Limited access')}
+  if(d.who.some(w=>/minoritized|Indigenous|Immigrants|LGBTQ|Clinical|Children|Adolescents/.test(w))&&!r.some(x=>/Lived|Community member/.test(x)))out.add('Power differences')}
+ return [...out]}
+function positionalityBlock(){const d=D();const rose=lens()==='rose';const sg=suggestMiss();
+ return `<div class="field pos"><span class="lab">Positionality</span><span class="hint">Your identity, experiences, and power shape what you see and who trusts you. Choose all that apply. You can be part of a community and serve it too.</span>
+ ${F.chips('rel',rose?'Who I am to this community':'My relationship to this topic',rose?L.relR:L.relS)}
+ ${F.chips('bring','What I bring',rose?L.bringR:L.bringS)}
+ ${F.chips('miss','What I might miss',rose?L.missR:L.missS,0,sg.length?'Outlined options are suggested from your card.':'',()=>'',o=>sg.includes(o))}</div>`}
+function posStatus(){const d=D();const m=[];if(!(d.rel||[]).length)m.push('who you are to them');if(!(d.miss||[]).length)m.push('what you might miss');return{ok:!m.length,missing:m}}
+function gate(){const d=D();const m=[];if((d.libText||'').trim().length<10)m.push('the need in community members\' words');if(!d.informed.length)m.push('how the community informs it');if(!d.credit.length)m.push('how you credit them');if(!d.compensate.length)m.push('how you compensate them');return{ok:!m.length,missing:m}}
+function communityHowBlock(){const g=gate();return `<div class="field coled"><span class="lab">How is the community informing this, and how are you crediting and compensating them?</span>
+ <span class="hint">Third spaces are co-led. Liberation psychology starts from lived experience; Indigenous psychology lets the community's own knowledge lead; SAPR (Lewin) has the community co-lead the action.</span>
+ ${F.text('libText','What have community members told you they need, in their words?','Start from lived experience.',true)}
+ ${F.chips('informed','How the community informs and co-leads it',L.informed)}
+ ${F.chips('credit','How you credit them',L.credit)}
+ ${F.chips('compensate','How you compensate them',L.compensate)}
+ <p class="status">${g.ok?'<span class="ok">Community-informed, credited, and compensated</span>':`Still needed: ${esc(g.missing.join(', '))}`}</p></div>`}
+/* ---- Research product helpers ---- */
+const OUTS_V={'Deeper understanding':'Growth','Better wellbeing':'Wellbeing','Fairer access to resources':'Equity','Skills people can use':'Agency','A tool in use':'Agency','Data people can use':'Equity','Policy or practice change':'Equity','Stronger community ties':'Belonging'};
+const allTheories=d=>[...d.theories,...(d.theoryOwn&&d.theoryOwn.trim()?[d.theoryOwn.trim()]:[])];
+function designBlock(){const d=D();const sugg=GEAR[d.gear]||[];const sel=d.approaches;
+ const groups=Object.entries(DESIGN).map(([g,items])=>`<div class="group"><span class="gname">${g}</span><div class="chips">${Object.keys(items).map(a=>{const on=sel.includes(a);const r=on?'':conflictFor(a,sel);return `<button type="button" class="chip${sugg.includes(a)?' sug':''}" data-chip="approaches" data-v="${esc(a)}" data-max="0" aria-pressed="${on}"${r?` disabled title="${esc(r)}"`:` data-tip="${esc(items[a])}"`}>${esc(a)}</button>`}).join('')}</div></div>`).join('');
+ const hasQ=sel.some(a=>QUANT.includes(a)),hasL=sel.some(a=>QUAL.includes(a)),hasM=sel.some(a=>MIXED.includes(a));
+ let note='';if(hasM&&!(hasQ&&hasL))note=flag('A mixed-methods sequence needs at least one quantitative and one qualitative design.');else if(hasQ&&hasL&&!hasM)note=`<div class="readout">You chose quantitative and qualitative designs. Pick a mixed-methods sequence to say how they fit together.</div>`;
+ const blocked=CONFLICT.filter(([x,y])=>sel.includes(x)||sel.includes(y)).map(([x,y,r])=>`${sel.includes(x)?y:x}: ${r}`).filter((v,i,a)=>a.indexOf(v)===i);
+ return `<div class="field"><span class="lab">Research designs</span><span class="hint">Hover any option for a short description. A study can be several things at once, like archival and longitudinal; options that can't share one study are greyed out.</span><div class="rows">${groups}</div>${blocked.length?`<div class="hint">Greyed out: ${blocked.map(esc).join(' ')}</div>`:''}${note}</div>`}
+function methodsAvail(){const d=D();return [...new Set([...d.approaches.flatMap(a=>[...APPR[a].c,...APPR[a].a]),...(STANCE_M[d.stance]||[])])]}
+function specMissing(){const d=D();const m=[];if(!(d.whoSpec||'').trim())m.push('who, specifically');if(!(d.barrierSpec||'').trim())m.push('the barrier, specifically');if(!(d.outcomeSpec||'').trim())m.push('the outcome, specifically');if(!allTheories(d).length)m.push('one or two theories');return m}
+/* ================= Steps (the ROSE formula slots) ================= */
+const ORDER={rose:['idea','petal','who','what','how','why','card'],research:['idea','petal','who','what','how','why','card']};
+const steps=()=>ORDER[lens()];
+const SLOT={idea:'Idea',petal:'Petal',who:'Who',what:'What',how:'How',why:'Why',card:'Card'};
+function slotSummary(id){const d=D();const ps=petalShares(d);const first=a=>a&&a.length?a[0]+(a.length>1?` +${a.length-1}`:''):'';
+ if(id==='idea')return d.spark?d.spark.slice(0,38)+(d.spark.length>38?'…':''):'';
+ if(id==='petal')return PNAME[ps.start]+(ps.support.length?' + '+ps.support.map(p=>PNAME[p]).join(', '):'');
+ if(id==='who')return (lens()==='research'&&d.whoSpec)||d.whoOther||first(d.who)||first(d.ripple.filter(r=>r.name).map(r=>r.name));
+ if(id==='what')return lens()==='rose'?first(d.barrier.map(b=>b.split(' (')[0])):first(allTheories(d));
+ if(id==='how')return lens()==='rose'?(gate().ok?'Co-led ✓':''):first(d.approaches);
+ if(id==='why')return first(d.values);
+ return '';}
+const META={
+ rose:{
+  idea:{t:'Your idea',info:'Amar Basha means "my home." Create a third space, or transform one you have into a community hub: a place where people belong. Start with the idea that excites you, or with something you keep noticing.',cheer:'Great ideas often start as play.',
+   q:()=>F.text('spark','Your idea, or what you keep noticing','e.g., a monthly calligraphy night, or families keep asking the desk the same paperwork questions',true)+F.rate('interest','How excited are you about this?')},
+  petal:{t:'Petal: find your starting petal',info:'What is the main barrier? Split points across the four. Your highest becomes your starting petal; any at 25% or more supports it.',cheer:'Start where the barrier is.',
+   q:()=>{const d=D();const ps=petalShares(d);const ord=[ps.start,...ps.support,...PORDER.filter(p=>p!==ps.start&&!ps.support.includes(p))];
+    return F.alloc('petals','What is the main barrier?',PORDER.map(p=>({id:p,label:PNAME[p],sub:PET.rose[p]})))+`<div class="readout" id="petalReadout">${petalReadout()}</div>`+
+    `<div class="field"><label for="f_focus">Focus area</label><span class="hint">Two focus areas live in each petal. This shapes the directions on your card.</span><select id="f_focus" data-k="focus" data-rerender="1"><option value="">Choose one</option>${ord.map(p=>`<optgroup label="${PNAME[p]}${p===ps.start?' (starting)':''}">${Object.keys(FOCUS[p]).map(f=>`<option value="${p}|${esc(f)}"${d.focus===p+'|'+f?' selected':''}>${esc(f)}</option>`).join('')}</optgroup>`).join('')}</select></div>`},
+   d:()=>{const d=D();if(!d.focus)return '';const [p,f]=d.focus.split('|');return deeper('petal',F.chips('actions','Kinds of action',FOCUS[p][f]||[],0,'Directions only: you name the real thing'))}},
+  who:{t:'Who: the community, and your positionality',info:'Which community, specifically, and who are you to them? Not sure who yet? The ripple map helps you find who your idea already serves.',cheer:'Naming your position is part of serving well.',
+   q:()=>F.chips('who','Community',L.whoR)+F.text('whoOther','Say it more specifically','e.g., Veterans moving into civilian work, or military families new to the area')+deeper('ripple',rippleBlock(),'Help me find who (ripple map)',D().ripple.length>0)+positionalityBlock()},
+  what:{t:'What: barrier and outcome',info:'Which barrier does this remove, what will you see when it works, and when could you first see it?',cheer:'Any timeline works. Name the one that fits your space.',
+   q:()=>F.chips('barrier','Barrier',L.barrier)+F.chips('outcome','Outcome',L.outcomeR)+F.one('timeline','When could you see the first outcome?',L.timeline),
+   d:()=>deeper('what',F.list(F.num('reachC','% of our community in this group')+F.num('reachS','% of people we serve in this group'),'Reach audit','Who is in your numbers, and who uses your services?'))},
+  how:{t:'How: community-informed, credited, and compensated',info:'How is the community shaping this, how are you crediting and compensating them, and who on your side carries it?',cheer:'The answer to what we build lives with the people it serves.',
+   q:()=>{const d=D();let h=communityHowBlock()+F.sel('owner','Who on your side owns it',L.owner)+F.chips('partner','Partners',L.partners)+F.one('level','Your project as a rose',L.levelRose)+F.text('goalText','Your shared goal: one neither group reaches alone','e.g., A welcome wall handwritten in every language our community speaks')+F.one('integration','Integration check (Berry): keep heritage culture, engage the new',L.integration);
+    if(d.integration===L.integration[1])h+=flag('Affinity spaces are valuable. Is the heritage focus intentional and chosen with the community?');
+    if(d.integration===L.integration[2])h+=flag('Where does heritage culture live in this project? One small addition can turn bridging into integration.');
+    if(d.integration===L.integration[3])h+=flag('Revisit who and why: what would make this feel like home to them?');return h},
+   d:()=>deeper('how',F.chips('policy','Policy',L.policy))},
+  why:{t:'Why: your values',info:'Say what you care about in your own words, or let the compass suggest values from your card. Then weight them and connect the ones that feed each other.',cheer:'Two things can both matter. Your weights show which one leads, in your own mind.',q:()=>valuesBlock(),d:()=>deeper('why',subWhys())},
+  card:{t:'Your ROSE card',info:'Pause. Read your card. Does it sound like you?',cheer:'This idea was always yours. Now you can say why it matters, and to whom.',q:()=>cardBlock(),d:()=>deeper('card',['Community partners','Administrators','Frontline staff'].map(a=>F.text('pitch.'+a,a,'One line, in your voice')).join(''),'Make the case to each audience (optional)')}
+ },
+ research:{
+  idea:{t:'Your idea',info:'Start with your idea, from any field, and the research product you want to make.',cheer:'You may not think of yourself as a helper yet. Watch what happens.',
+   q:()=>F.text('spark','Your idea, or the question you keep noticing','e.g., Handwriting a letter feels different from typing one. Why?',true)+F.one('product','Your research product',L.product)+F.one('scale','How big?',L.scale,'Small or huge, the framework is the same.')+F.one('timeline','When could you share a first result?',L.timeline)+F.rate('interest','How much does this pull you?'),
+   d:()=>deeper('idea',F.text('sparkWhy','Why does it grab you?','',true)+F.sel('stage','Where you are',L.stage))},
+  petal:{t:'Petal: the barrier your work addresses',info:'Every research product does at least one of these jobs for people. Split points across the four; your highest becomes your starting petal. Then name the barrier in your own words.',cheer:'Knowledge is a resource, a bridge, a service, and a teacher.',
+   q:()=>F.alloc('petals','Which barrier is biggest?',PORDER.map(p=>({id:p,label:PNAME[p],sub:PET.research[p]})))+`<div class="readout" id="petalReadout">${petalReadout()}</div>`+F.text('barrierSpec','The barrier, specifically','What is in the way for the people this could help? Use your words.',true,'You write this part. The petal names the kind of barrier; you name the real one.')},
+  who:{t:'Who: the people, and your positionality',info:'Who does this help, specifically? Ask: who benefits, and who was left out? Then name your position. Why you?',cheer:'Your identity, experiences, and power shape the questions you ask. State your position openly.',
+   q:()=>F.chips('who','Who does this center?',L.whoS)+F.text('whoSpec','Who, specifically?','e.g., Student veterans in their first year on campus',false,'You write this part.')+F.chips('needs','Who benefits when this exists?',L.need)+deeper('ripple',rippleBlock(),'Help me find who (ripple map)',D().ripple.length>0)+positionalityBlock(),
+   d:()=>deeper('who',F.rate('needR','How much do they need this?')+F.chips('learnFrom','Who I would learn from',L.learnFrom))},
+  what:{t:'What: theories, gap, and outcome',info:'Ground your idea in one or two theories, name the gap, and say what changes for people when your work exists.',cheer:'A theory is a pair of glasses. Try a few on.',
+   q:()=>{const d=D();const max=Math.max(1,2-((d.theoryOwn||'').trim()?1:0));return `<div class="field"><span class="lab">Theories <span class="hint">(choose 1 to 2)</span></span><span class="hint">Your product needs one or two theories. Hover any theory for a short description. A theory you add from your own field counts as one.</span><div class="rows">${Object.keys(THEORY).map(g=>`<div class="group"><span class="gname">${g}${g==='Foundations for helping'?'<span class="fit">helping</span>':''}</span><div class="chips">${THEORY[g].map(t=>`<button type="button" class="chip" data-chip="theories" data-v="${esc(t)}" data-max="${max}" aria-pressed="${d.theories.includes(t)}"${TTIP[t]?` data-tip="${esc(TTIP[t])}"`:''}>${esc(t)}</button>`).join('')}</div></div>`).join('')}</div></div>`
+    +F.text('theoryOwn','Add a theory from your field','e.g., Broaden-and-build, control theory')
+    +F.text('theoryWhy','How do your theories explain your idea?','One or two sentences, in your words',true)
+    +F.one('gap','What is missing in what we know?',L.gap,'Check the literature to confirm.')
+    +F.chips('outcomes','Outcome: what changes for people?',L.outcomeS)
+    +F.text('outcomeSpec','The outcome, specifically','What will be different, and for whom?',true,'You write this part.')},
+   d:()=>deeper('what',F.list(F.rate('theoryFit','How well do these theories explain your idea?')+F.rate('gapOpen','How open does the space look?')))},
+  how:{t:'How: approach, design, and methods',info:'Choose your research approach and the designs your study needs, then the methods that fit. Hover any option for a short description.',cheer:'Wanting to learn a method counts. Growth is part of the fit.',
+   q:()=>{const d=D();const avail=methodsAvail();
+    return F.one('stance','Research approach',Object.keys(STANCE),'Who leads the research and whose knowledge counts',o=>STANCE[o])
+     +F.one('lensv','Lens',Object.keys(LENSV),'',o=>LENSV[o])
+     +F.one('gear','Lab coat, field boots, or archive gloves?',['Lab coat','Field boots','Archive gloves'],'Your pick outlines designs you might enjoy.')
+     +designBlock()
+     +(avail.length?F.chips('methods','Methods that fit your designs',avail,0,'Hover for a short description.',()=>'',()=>false,o=>MTIP[o]||''):'<p class="hint">Pick a design to see the methods that fit it.</p>')
+     +F.text('designSpec','Your design in one sentence','What will you actually do?',true,'You write this part.')
+     +F.one('shapes','Who shapes the question?',L.shapes)
+     +`<div class="field coled"><span class="lab">Crediting and compensating stakeholders</span><span class="hint">Stakeholders include participants, partners, committees, and institutions. Archival work may have no participants; acknowledging stakeholders still counts.</span>${F.chips('credit','How you credit stakeholders',L.creditS)}${F.chips('compensate','How you compensate them, if there are participants',L.compS)}</div>`},
+   d:()=>{const d=D();return deeper('how',(d.methods.length?F.list(d.methods.map(m=>`<div class="field"><label for="${fid('ms.'+m)}">${esc(m)}</label><select id="${fid('ms.'+m)}" data-k="mstat.${esc(m)}"><option value="have"${d.mstat[m]==='have'?' selected':''}>Have it</option><option value="learn"${(d.mstat[m]||'learn')==='learn'?' selected':''}>Want to learn</option><option value="curious"${d.mstat[m]==='curious'?' selected':''}>Curious</option></select></div>`).join(''),'Your skill with each method'):'')+F.list(F.sel('data','Data access',L.data)+F.sel('advisor','Advisor or team fit',L.advisor)+F.sel('irb','IRB complexity',L.irb)+F.sel('cost','Cost',L.cost),'Feasibility')+F.chips('returnPlan','How findings return to the community',L.returnPlan)+F.rate('outFit','Does this design produce your research product?'))}},
+  why:{t:'Why: your values',info:'Say what you care about in your own words, or let the compass suggest values from your card. Then weight them and connect the ones that feed each other.',cheer:'Two things can both matter. Your weights show which one leads, in your own mind.',q:()=>valuesBlock(),d:()=>deeper('why',subWhys())},
+  card:{t:'Your research card',info:'Pause. Read your card. Does it sound like you?',cheer:'This idea was always yours. Now you can say why it matters, and to whom.',q:()=>cardBlock(),d:()=>deeper('card',['Advisor','The field','Community','Funders'].map(a=>F.text('pitch.'+a,a,'One line, in your voice')).join(''),'Make the case to each audience (optional)')}
+ }
+};
+
+/* ================= Scoring: four alignment metrics ================= */
+const METRICS=[
+ {id:'sat',label:'Self-satisfaction',desc:'How satisfied you are with the project direction you created'},
+ {id:'con',label:'Self-concept',desc:'How well the final direction aligns with who you are'},
+ {id:'suc',label:'Projected success rate',desc:'Estimated likelihood of success with consistent effort and a standard approach, given your skills, experience, and scope'},
+ {id:'flo',label:'Life flourishing',desc:'How much the project helps life, spaces, and resources flourish'}];
+const OUT=Object.fromEntries(METRICS.map(m=>[m.id,m.label]));
+function valueCalc(d){const vals=d.values;const T={},X={};vals.forEach(v=>{const dir=(d.vs[v]??2)/4;let ind=0;const via=[];d.paths.forEach(p=>{if(p.to===v&&vals.includes(p.from)){const c=((d.vs[p.from]??2)/4)*p.str;ind+=c;via.push({from:p.from,src:(d.vs[p.from]??2)/4,str:p.str,c})}});T[v]=clamp(dir+ind);X[v]={dir,ind,via}});const wsum=vals.reduce((a,v)=>a+(+d.vw[v]||0),0);const C=wsum?vals.reduce((a,v)=>a+(+d.vw[v]||0)*T[v],0)/wsum:null;const top=vals.slice().sort((a,b)=>T[b]*(+d.vw[b]||0)-T[a]*(+d.vw[a]||0));return{vals,T,X,C,top,wsum}}
+const filled=x=>Array.isArray(x)?x.length>0:(x!=null&&String(x).trim().length>0);
+function planProgress(l,d){const rose=l==='rose';const ps=petalShares(d);const def=PORDER.every(p=>+d.petals[p]===25);
+ const slots=rose?{
+  idea:[filled(d.spark)],
+  petal:[!def,filled(d.focus)],
+  who:[filled(d.who)||filled(d.whoOther),filled(d.rel),filled(d.miss)],
+  what:[filled(d.barrier),filled(d.outcome),filled(d.timeline)],
+  how:[filled(d.libText),filled(d.informed),filled(d.credit),filled(d.compensate),filled(d.owner),filled(d.goalText)],
+  why:[filled(d.values),d.values.length>=2],
+  card:[(d.mine||'').trim().length>=15,d.like!=null,d.sat!=null]}:{
+  idea:[filled(d.spark),filled(d.product),filled(d.scale),filled(d.timeline)],
+  petal:[!def,filled(d.barrierSpec)],
+  who:[filled(d.who),filled(d.whoSpec),filled(d.rel),filled(d.miss)],
+  what:[allTheories(d).length>0,filled(d.theoryWhy),filled(d.gap),filled(d.outcomes)||filled(d.outcomeSpec)],
+  how:[filled(d.stance),filled(d.approaches),filled(d.methods),filled(d.designSpec)],
+  why:[filled(d.values),d.values.length>=2],
+  card:[(d.mine||'').trim().length>=15,d.like!=null,d.sat!=null]};
+ const per={};let a=0,n=0;Object.entries(slots).forEach(([k,arr])=>{const f=arr.filter(Boolean).length;per[k]=f/arr.length;a+=f;n+=arr.length});return{per,total:a/n}}
+function part(label,v,e){return{label,v,e}}
+function metricFrom(parts){const p=parts.filter(x=>x.v!=null);return{v:p.length?mean(p.map(x=>x.v)):null,parts}}
+const STAGE_CAP={'Intro course':1,'Upper-division course':1.5,'Honors':2,'Master\'s':2.5,'Doctoral':3.5,'Faculty':4,'Practitioner':3,'Industry or engineering team':3.5};
+const TL_IDX={'30 days':1,'3 months':2,'6 months':2.5,'1 year':3,'2+ years':4};
+function compute(l=lens()){const keep=S.tab;S.tab=l;const d=S.data[l];const V=valueCalc(d);const rose=l==='rose';
+ const valuesAlign=V.vals.length&&V.wsum?V.C:null;
+ const posV=mean([filled(d.rel)?1:0,filled(d.bring)?1:0,filled(d.miss)?1:0]);
+ let ethics;if(rose){ethics=mean([(d.libText||'').trim().length>=10?1:0,Math.min(1,d.informed.length/2),d.credit.length?1:0,d.compensate.length?1:0])}
+ else{const sh={'Community co-defines':1,'Community consulted':.8,'Stakeholders consulted (committee, institutions, partners)':.8,'Researcher alone':.5}[d.shapes];const ev=[sh??0,d.credit.length?1:0];if(d.compensate.length)ev.push(1);ethics=mean(ev)}
+ const ownWords=rose?mean([(d.mine||'').trim().length>=15?1:0,filled(d.whoOther)?1:0,filled(d.goalText)?1:0]):mean([d.whoSpec,d.barrierSpec,d.outcomeSpec,d.theoryWhy,d.designSpec,d.mine].map(x=>(x||'').trim().length>=8?1:0));
+ const rp=d.ripple.filter(x=>x.name&&x.name.trim());const ripple=rp.length?.7*Math.max(...rp.map(x=>+x.depth))/4+.3*Math.min(1,rp.length/5):null;
+ const commVals=V.vals.filter(v=>V_COMMUNITY.includes(v));const commServe=commVals.length?mean(commVals.map(v=>V.T[v])):null;
+ const M={};
+ M.sat=metricFrom([part('Values alignment',valuesAlign,'Your weighted values, direct + path effects'),part(rose?'Excitement':'Interest',d.interest/4,`rating ${d.interest} ÷ 4`),part('Satisfied with this direction',d.sat==null?null:d.sat/4,d.sat==null?'Rate it on your card':`rating ${d.sat} ÷ 4`)]);
+ M.con=metricFrom([part('Sounds like me',d.like==null?null:d.like/4,d.like==null?'Rate it on your card':`rating ${d.like} ÷ 4`),part('Positionality',posV,'Who you are to them, what you bring, what you might miss'),part('Ethical competence',ethics,rose?'Community-informed, credited, compensated':'Who shapes it, how stakeholders are credited'),part('In your own words',ownWords,'Specifics you wrote yourself')]);
+ if(rose){const relC=(d.rel||[]).some(r=>/part of|serve this community now/.test(r))?1:(d.rel||[]).some(r=>/Close tie/.test(r))?.8:(d.rel||[]).length?.6:null;
+  const skill=relC==null?null:mean([relC,Math.min(1,d.bring.length/3)]);
+  const scope={'Bud: Start':1,'Full bloom: Grow':2,'Climbing rose: Formalize':3}[d.level];const cap=1+(d.owner?1:0)+Math.min(1,d.partner.length/2);const fit=scope==null?null:clamp(1-Math.max(0,scope-cap)*.3);
+  const ready=mean([d.owner?1:0,d.partner.length?1:0,d.timeline?1:0]);const clarity=mean([filled(d.goalText)?1:0,(d.mine||'').trim().length>=15?1:0,filled(d.firstStep)?1:0]);
+  M.suc=metricFrom([part('Readiness',ready,'Owner, partner, and timeline named'),part('Skill and experience',skill,'Your relationship to the community and what you bring'),part('Scope fit',fit,fit==null?'Choose how far you\'ll go in How':`Level ${scope} against capacity ${cap.toFixed(1)} (owner + partners)`),part('Clarity',clarity,'Shared goal, statement, and first step written')]);
+  const gt=filled(d.goalText)?1:0;const it={[L.integration[0]]:1,[L.integration[1]]:.85,[L.integration[2]]:.4,[L.integration[3]]:0}[d.integration];
+  const c=+d.reachC,s=+d.reachS;const reach=(d.reachC!==''&&d.reachS!==''&&c>0)?clamp((c-s)/c):null;
+  M.flo=metricFrom([part('Ripple',ripple,'Depth of benefit, then breadth'),part('Community values served',commServe,'Total effect on dignity, belonging, agency, equity, wellbeing, sustainability'),part('Outcomes',d.outcome.length?Math.min(1,d.outcome.length/2):null,'Outcomes named'),part('Common ground',it==null?gt:mean([gt,it]),'Shared goal and integration'),part('Reach gap',reach,'Share in community vs. share served')]);
+ }else{const mv=d.methods.map(m=>({have:1,learn:.5,curious:.25}[d.mstat[m]||'learn']));const skill=mv.length?mean(mv):null;
+  const sc={'Seed':1,'Sprout':2,'Garden':3,'Forest':4}[short(d.scale)];const capS=STAGE_CAP[d.stage]??2;const tl=TL_IDX[d.timeline];
+  const fits=[];if(sc!=null)fits.push(clamp(1-Math.max(0,sc-capS)*.3));if(sc!=null&&tl!=null)fits.push(clamp(1-Math.max(0,sc-tl)*.25));const fit=fits.length?mean(fits):null;
+  const fm=[{'Have it':1,'Can collect':.7,'Hard to get':.3}[d.data],{'Aligned':1,'Somewhat':.6,'Not yet':.3}[d.advisor],{'Exempt':1,'Expedited':.7,'Full board':.4,'Not human subjects':1}[d.irb],{'None':1,'Low':.8,'Needs funding':.4}[d.cost],allTheories(d).length?d.theoryFit/4:null,d.product?d.outFit/4:null].filter(x=>x!=null);
+  M.suc=metricFrom([part('Readiness',fm.length?mean(fm):null,'Data, team, IRB, cost, theory fit, product fit'),part('Skill fit',skill,'Methods: have it 1, learn .5, curious .25'),part('Scope fit',fit,fit==null?'Choose size and timeline in Idea':`Size ${sc} against stage ${capS} and timeline ${tl??'open'}`),part('Clarity',mean([d.whoSpec,d.barrierSpec,d.outcomeSpec,d.designSpec].map(x=>(x||'').trim().length>=8?1:0)),'Who, barrier, outcome, design written')]);
+  M.flo=metricFrom([part('Ripple',ripple,'Depth of benefit, then breadth'),part('Community values served',commServe,'Total effect on dignity, belonging, agency, equity, wellbeing, sustainability'),part('Outcomes',d.outcomes.length?Math.min(1,d.outcomes.length/2):null,'What changes for people'),part('Need',d.needs.length?d.needR/4:null,'How much beneficiaries need it'),part('Findings return',d.returnPlan.length?(d.returnPlan.every(x=>x==='Not yet planned')?.3:1):null,'How findings reach people')]);
+ }
+ const metrics=METRICS.map(m=>({...m,...M[m.id]}));const got=metrics.filter(m=>m.v!=null);const total=got.length?mean(got.map(m=>m.v)):0;
+ const subs=Object.fromEntries(metrics.map(m=>[m.id,{v:m.v,a:m.parts.filter(p=>p.v!=null).map(p=>({label:p.label,c:p.v}))}]));
+ const out={metrics,subs,total,V,plan:planProgress(l,d),ps:petalShares(d),pos:posStatus(),gate:rose?gate():{ok:true,missing:[]},spec:rose?[]:specMissing()};S.tab=keep;return out}
+
+/* ================= Card ================= */
+const B=x=>x&&String(x).trim()?`<span class="b">${esc(x)}</span>`:`<span class="blank">______</span>`;
+const lst=a=>a&&a.length?(a.length===1?a[0]:a.slice(0,-1).join(', ')+' and '+a[a.length-1]):'';
+const short=s=>s?s.split(':')[0]:'';
+function pathPhrase(d,V){const p=d.paths.find(p=>V.vals.includes(p.from)&&V.vals.includes(p.to));return p?`${p.from} → ${p.to}`:(V.top[0]||'')}
+function frameHTML(){const d=D();const R=compute();const ps=R.ps;const sup=ps.support.length?`, supported by ${B(ps.support.map(p=>PNAME[p]).join(' and '))}`:'';
+ if(lens()==='rose'){const who=d.whoOther||lst(d.who)||lst(d.ripple.filter(r=>r.depth>=3).map(r=>r.name));
+  return `<strong>Petal</strong> ${B(PNAME[ps.start])}${sup}<br>+ <strong>Who</strong> ${B(who)}<br>+ <strong>What</strong> ${B(lst(d.barrier.map(b=>b.split(' (')[0])).toLowerCase())} → ${B(lst(d.outcome).toLowerCase())}, first seen in ${B(d.timeline)}<br>+ <strong>How</strong> informed by ${B(lst(d.informed).toLowerCase())}; credited as ${B(lst(d.credit).toLowerCase())}; compensated with ${B(lst(d.compensate).toLowerCase())}; carried by ${B(d.owner)} with ${B(lst(d.partner))}, ${B(short(d.level))}, toward ${B(d.goalText)}<br>+ <strong>Why</strong> ${B(pathPhrase(d,R.V))}`}
+ const P=(x,p)=>x&&String(x).trim()?`<span class="b">${esc(x)}</span>`:`<span class="blank">${esc(p)}</span>`;const th=allTheories(d);
+ return `<strong>Petal</strong> ${B(PNAME[ps.start])}${sup}: ${P(d.barrierSpec,'the barrier, in your words')}<br>+ <strong>Who</strong> ${P(d.whoSpec||lst(d.who),'who, specifically')}<br>+ <strong>What</strong> theory 1 ${P(th[0],'choose a theory')}${th[1]?`, theory 2 ${P(th[1],'')}`:', theory 2 <span class="hint">(optional)</span>'}; a ${P(d.gap&&d.gap.toLowerCase(),'gap')} gap; outcome ${P(d.outcomeSpec||lst(d.outcomes).toLowerCase(),'what changes, in your words')}<br>+ <strong>How</strong> ${P(d.stance,'approach')}${d.lensv?`, ${esc(d.lensv.toLowerCase())}`:''}; ${P(lst(d.approaches).toLowerCase(),'designs')}; ${P(d.designSpec,'your design in one sentence')}<br>+ <strong>Why</strong> ${B(pathPhrase(d,R.V))}<br>= a ${B(d.product&&d.product.toLowerCase())}, ${B(short(d.scale).toLowerCase())}-sized, first results in ${B(d.timeline)}`}
+function posLine(){const d=D();return `<strong>Positionality:</strong> ${B(lst((d.rel||[]).map(x=>x.toLowerCase())))}. I bring ${B(lst(d.bring).toLowerCase())}, and I'll watch for ${B(lst(d.miss).toLowerCase())}.`}
+function directions(){const d=D();const R=compute();const ps=R.ps;const out=[];const tv=R.V.top[0];
+ const DIR=lens()==='rose'?{R:[['A co-authored guide','Co-authors gain authorship along with access.'],['A living FAQ the community updates','It keeps the resource current and owned by its users.']],O:[['Show up where people already gather','Trust grows on the community\'s own ground.'],['A partner-hosted pop-up','A trusted partner opens the first door.']],S:[['A navigator hour run with a partner','It pairs your desk with someone the community already trusts.'],['A warm-handoff referral script','It gives staff the words and permission to refer.']],E:[['A peer-led circle','Community members teach from lived knowledge, paid as teachers.'],['A skill night that honors heritage knowledge','It builds confidence in both cultures at once.']]}
+ :{R:[['Consider a toolkit, guide, or dataset','Which people would use it, and what would they do with it first?'],['Consider a measure others can reuse','What would it measure that no current measure captures?']],O:[['Consider centering a group the research has missed','Who, specifically, and how will they shape the work?'],['Consider a public or community version of your findings','Where do the people you serve already get their information?']],S:[['Consider testing something that helps','What would people do differently, and how would you know?'],['Consider building it with its users','Who are the users, and what would they test first?']],E:[['Consider testing a theory in a new context','Which context, and what would surprise the field?'],['Consider teaching from what you find','Who would learn from it, and in what setting?']]};
+ DIR[ps.start].forEach(([a,b])=>out.push([a,lens()==='research'?`${b} (It fits your ${PNAME[ps.start]} petal${tv?` and your top value, ${tv}`:''}.)`:`${b} It fits your ${PNAME[ps.start]} start${tv?` and your top value, ${tv}`:''}.`]));
+ if(ps.support[0])out.push([DIR[ps.support[0]][0][0],`${DIR[ps.support[0]][0][1]} It uses your supporting petal, ${PNAME[ps.support[0]]}.`]);
+ if(lens()==='rose'&&!R.gate.ok)out.unshift(['Co-lead first',`Still needed: ${R.gate.missing.join(', ')}`]);
+ if(lens()==='research'&&d.approaches.length>1)out.splice(2,0,['Consider what each design answers',`Which part of your question does each of ${lst(d.approaches).toLowerCase()} answer?`]);
+ return out.slice(0,3)}
+function cardSuggestions(){const d=D();const sv=suggestValues().filter(s=>!d.values.includes(s.v));const sm=suggestMiss().filter(m=>!d.miss.includes(m));if(!sv.length&&!sm.length)return '';
+ return `<div class="field"><span class="eyebrow">Suggested from your card</span><span class="hint">The compass read what you built. Add what fits.</span><div class="detectbox">
+ ${sv.length?`<div class="detect"><span>Values your card seems to serve: ${sv.map(s=>`<strong class="calc-c">${esc(s.v)}</strong> <span class="hint">(${esc(s.why)})</span>`).join(', ')}</span><span class="chips">${sv.map(s=>`<button class="btn ghost sm" data-act="addSugValue" data-v="${esc(s.v)}">Add ${esc(s.v)}</button>`).join('')}</span></div>`:''}
+ ${sm.length?`<div class="detect"><span>Given your positionality, you might miss: ${sm.map(m=>`<strong class="calc-c">${esc(m.toLowerCase())}</strong>`).join(', ')}</span><span class="chips">${sm.map(m=>`<button class="btn ghost sm" data-act="addMiss" data-v="${esc(m)}">Add</button>`).join('')}</span></div>`:''}</div></div>`}
+function cardBlock(){const d=D();const R=compute();
+ return `<div class="seed">
+  <div class="field"><span class="eyebrow">${lens()==='rose'?'Your ROSE formula':'Your research formula'}</span><p class="frame">${frameHTML()}</p><p class="frame small">${posLine()}</p><span class="hint"><span class="you">Highlighted</span> words are yours. Dashed blanks are still open; tap a slot above to fill one.</span></div>
+  ${cardSuggestions()}
+  ${lens()==='research'?F.text('mine','Your research question or product statement','Write it in your own words. The compass never writes this part.',true,'Required: your card saves once you write it'):F.text('mine','Say it your way','Write your project in your own words. This is the part only you can write.',true,'Required: your card saves once you write it')}
+  ${F.list(F.rate('sat','I\'m satisfied with this direction','It counts toward Self-satisfaction.')+F.rate('like','This sounds like me','It counts toward Self-concept.'))}
+  ${resultsBlock(R)}
+  ${lens()==='rose'?F.text('firstStep','Your first step in the next 30 days','One thing you could do this month'):''}
+  <div class="field"><span class="eyebrow">${lens()==='research'?'Questions to make it yours':'Directions worth exploring'}</span><span class="hint">${lens()==='research'?'Kinds of projects that fit your card, each with a question only you can answer':'These kinds of projects fit your card. You decide what to make of them.'}</span><div class="dirs">${directions().map(([a,b])=>`<div class="dir"><strong>${esc(a)}</strong><span>${esc(b)}</span></div>`).join('')}</div></div>
+  ${R.spec.length?flag(`<strong>Make it yours.</strong> Still needed, in your words: ${esc(R.spec.join(', '))}`):''}
+  ${R.pos.ok?'':flag(`<strong>Before you save: your positionality</strong> Add ${esc(R.pos.missing.join(' and '))} in Who, or use the suggestions above.`)}
+  ${lens()==='rose'&&!R.gate.ok?`${flag(`<strong>Draft until co-led</strong> Still needed: ${esc(R.gate.missing.join(', '))}`)}${F.text('colead','Your co-lead-first plan','Who will you invite, how will they lead, and how will you credit and pay them?',false,'Required until the How slot is complete')}`:''}
+  <div class="chips"><button class="btn" data-act="saveSeed">Save to compare</button><button class="btn ghost" data-act="copySeed">Copy card</button><span class="copied" id="copied" aria-live="polite"></span></div>
+ </div>
+ <div class="jwrap"><div class="seg" role="group" aria-label="Card view"><button data-act="jview" data-v="journey" aria-pressed="${S.j.view==='journey'}">How you built this</button><button data-act="jview" data-v="pattern" aria-pressed="${S.j.view==='pattern'}">Your pattern over time</button></div><div id="journey" class="journey"></div></div>
+ ${savedTable()}`}
+function canSave(){const d=D();const R=compute();return (d.mine||'').trim().length>=15&&R.pos.ok&&!R.spec.length&&(R.gate.ok||(d.colead||'').trim().length>=10)}
+function savedTable(){const rows=S.saved.filter(s=>s.lens===lens());if(!rows.length)return `<p class="hint">Save cards to compare them side by side and see your pattern over time.</p>`;
+ return `<div class="field"><span class="eyebrow">Compare your cards</span><div class="tablewrap"><table class="cmp"><thead><tr><th>Card</th><th>Petal</th><th class="n">Satisfaction</th><th class="n">Self-concept</th><th class="n">Success</th><th class="n">Flourishing</th><th class="n">Bloom</th><th></th></tr></thead><tbody>${rows.map(s=>`<tr><td>${esc(s.title)}</td><td>${esc(s.petal)}</td><td class="n">${s.sat??'·'}</td><td class="n">${s.con??'·'}</td><td class="n">${s.suc??'·'}</td><td class="n">${s.flo??'·'}</td><td class="n"><strong>${s.score}</strong></td><td><button class="x" data-act="delSeed" data-id="${s.id}" aria-label="Remove card">×</button></td></tr>`).join('')}</tbody></table></div></div>`}
+
+
+function resultsBlock(R){const d=D();return `<div class="results"><div class="res-petal" style="--pc:var(${PCOL[R.ps.start]})"><span class="eyebrow">Your petal</span><strong>${PNAME[R.ps.start]}</strong>${R.ps.support.length?`<span class="hint">supported by ${R.ps.support.map(p=>PNAME[p]).join(' and ')}</span>`:''}</div>
+ <div class="res-vals"><span class="eyebrow">Your values hit</span>${R.V.vals.length?R.V.vals.map(v=>`<div class="mini"><span>${esc(v)}</span><span class="num">${pct(R.V.T[v])}%</span><div class="track"><div class="fill" style="width:${R.V.T[v]*100}%;background:var(--leaf)"></div></div></div>`).join(''):'<span class="hint">Choose values in Why.</span>'}</div>
+ <div class="res-metrics"><span class="eyebrow">Alignment metrics</span>${R.metrics.map(m=>`<div class="mini"><span>${m.label}</span><span class="num">${m.v==null?'open':pct(m.v)+'%'}</span><div class="track"><div class="fill" style="width:${(m.v||0)*100}%"></div></div></div>`).join('')}</div></div>`}
+/* ================= Journey ================= */
+const SCENES=['Your words become values','Weights become shares','Paths add up','The rose opens','Four alignment metrics','The bloom','Your card'];
+let jTimer=null;
+function stopPlay(){if(jTimer){clearInterval(jTimer);jTimer=null}S.j.playing=false}
+function startPlay(){stopPlay();S.j.playing=true;S.j.view='journey';jTimer=setInterval(()=>{if(!$('#journey')){stopPlay();return}if(S.j.scene>=SCENES.length-1){stopPlay();renderJourney();return}S.j.scene++;renderJourney()},RM?6000:4200)}
+function sceneHTML(i,R,d){const V=R.V;
+ if(i===0){const words=d.words.filter(w=>V.vals.includes(w.value));const pickOnly=V.vals.filter(v=>!words.find(w=>w.value===v));
+  return `<p class="jcap">Your words are the observed indicators. Each value is the latent construct behind them, like a measurement model in SEM.</p><div class="jrows">${words.map((w,k)=>`<div class="jrow" style="--d:${k*.25}s"><span class="pill you">"${esc(w.text)}"</span><span class="jarrow">→</span><span class="pill calc-bg">${esc(w.value)}</span></div>`).join('')}${pickOnly.map((v,k)=>`<div class="jrow" style="--d:${(words.length+k)*.25}s"><span class="pill you">You picked</span><span class="jarrow">→</span><span class="pill calc-bg">${esc(v)}</span></div>`).join('')||''}</div>${!V.vals.length?'<p class="hint">Choose values in Why to see this scene.</p>':''}`}
+ if(i===1){return `<p class="jcap">Each weight ÷ total weight (${V.wsum}) = its share of 100%.</p><div class="jbars">${V.vals.map((v,k)=>{const sh=(+d.vw[v]||0)/(V.wsum||1);return `<div class="jbar"><span>${esc(v)}</span><span class="you num">${d.vw[v]||0}</span><span class="jarrow">÷ ${V.wsum} =</span><span class="calc-c num">${pct(sh)}%</span><div class="track"><div class="fill grow" style="--w:${sh*100}%;--d:${k*.2}s"></div></div></div>`}).join('')}</div>`}
+ if(i===2){const n=V.vals.length;if(!n)return '<p class="hint">Choose values to see paths.</p>';const pos={};V.vals.forEach((v,k)=>{const a=-Math.PI/2+k*2*Math.PI/n;pos[v]=[160+105*Math.cos(a),120+85*Math.sin(a)]});
+  const edges=d.paths.filter(p=>pos[p.from]&&pos[p.to]).map((p,k)=>{const [x1,y1]=pos[p.from],[x2,y2]=pos[p.to];const dx=x2-x1,dy=y2-y1,L2=Math.hypot(dx,dy)||1;const r=30;const ax=x1+dx/L2*r,ay=y1+dy/L2*r,bx=x2-dx/L2*(r+6),by=y2-dy/L2*(r+6);const mx=(ax+bx)/2,my=(ay+by)/2;
+   return `<line x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" class="jedge" style="--d:${k*.4}s" marker-end="url(#ah)"></line><rect x="${mx-20}" y="${my-10}" width="40" height="18" rx="9" style="fill:var(--card);stroke:var(--line)"></rect><text x="${mx}" y="${my+3}" text-anchor="middle" class="jlab">×${p.str}</text>`}).join('');
+  const nodes=V.vals.map(v=>{const [x,y]=pos[v];return `<circle cx="${x}" cy="${y}" r="30" style="fill:var(--soft);stroke:var(--leaf);stroke-width:2"></circle><text x="${x}" y="${y-3}" text-anchor="middle" class="jnode">${esc(v.split(' ')[0])}</text><text x="${x}" y="${y+12}" text-anchor="middle" class="jlab">${f2(V.T[v])}</text>`}).join('');
+  const eq=V.vals.map(v=>{const X=V.X[v];return `<div><strong>${esc(v)}</strong>: <span class="you">${f2(X.dir)}</span> direct${X.via.map(u=>` + (<span class="you">${f2(u.src)}</span> × <span class="you">${u.str}</span> from ${esc(u.from)})`).join('')} = <span class="calc-c">${f2(V.T[v])}</span>${X.dir+X.ind>1?' (capped at 1)':''}</div>`}).join('');
+  return `<p class="jcap">SEM tracing rule: total effect = direct + each path's source × strength.</p><svg viewBox="0 0 320 240" class="jsvg" role="img" aria-label="Value path diagram"><defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" style="fill:var(--leaf)"></path></marker></defs>${edges}${nodes}</svg><div class="jeq">${eq}</div>`}
+ if(i===3){return `<p class="jcap">Petal size = your barrier points ÷ 100. Your starting petal is <strong>${PNAME[R.ps.start]}</strong>.</p><div class="jrose">${roseSVG(R,true)}</div><div class="jbars">${PORDER.map(p=>`<div class="jbar"><span>${PNAME[p]}</span><span class="you num">${d.petals[p]}</span><span class="jarrow">→</span><span class="calc-c num">${pct(R.ps.sh[p])}%</span></div>`).join('')}</div>`}
+ if(i===4){return `<p class="jcap">These are your four alignment metrics. Each is the average of its parts, from your own answers.</p><div class="jstreams">${R.metrics.map(m=>`<div class="jstream"><strong>${m.label}</strong>${m.parts.filter(p=>p.v!=null).map(p=>`<div class="mini"><span>${p.label}</span><span class="calc-c num">${pct(p.v)}</span><div class="track"><div class="fill grow" style="--w:${p.v*100}%"></div></div></div>`).join('')||'<span class="hint">Open</span>'}<div class="jsub calc-c">${m.v==null?'open':pct(m.v)}</div></div>`).join('')}</div>`}
+ if(i===5){const got=R.metrics.filter(m=>m.v!=null);return `<p class="jcap">Your bloom is the average of the four alignment metrics.</p><div class="jeq big">(${got.map(m=>`<span class="calc-c">${pct(m.v)}</span> <span class="hint">${m.label}</span>`).join(' + ')}) ÷ ${got.length}<br>= <strong class="bloomnum">${pct(R.total)}</strong></div>`}
+ return `<p class="jcap">The formula gathered your choices. The project is in your words.</p><p class="frame">${frameHTML()}</p>${(d.mine||'').trim()?`<blockquote class="mine you">${esc(d.mine)}</blockquote>`:'<p class="hint">Write "Say it your way" above to finish your card.</p>'}<p class="sig">Built by you; calculated with you</p>`}
+function patternHTML(){const rows=S.saved.filter(s=>s.lens===lens());
+ const nest=`<p class="jcap">Multilevel view: each saved seed (level 1) is nested within you (level 2). As you save more, the lines show how your value weights shift from decision to decision.</p>`;
+ if(rows.length<2)return nest+`<svg viewBox="0 0 320 150" class="jsvg" role="img" aria-label="Nesting diagram"><rect x="20" y="15" width="280" height="120" rx="18" style="fill:var(--soft);stroke:var(--rose);stroke-width:2"></rect><text x="36" y="38" class="jnode">You (level 2)</text>${[0,1,2].map(k=>`<circle cx="${90+k*70}" cy="88" r="20" style="fill:${k<rows.length?'var(--rose)':'var(--card)'};stroke:var(--rose);stroke-dasharray:${k<rows.length?'0':'4 3'}"></circle><text x="${90+k*70}" y="124" text-anchor="middle" class="jlab">Seed ${k+1}</text>`).join('')}</svg><p class="hint">Save another seed to see your pattern.</p>`;
+ const vals=[...new Set(rows.flatMap(r=>Object.keys(r.shares||{})))].slice(0,6);const cols=['--rose','--amber','--leaf','--plum','--fg','--muted'];const W=320,H=180,px=40,py=20;const x=k=>px+(rows.length===1?0:k*(W-px-20)/(rows.length-1));const y=v=>H-py-v*(H-2*py);
+ const lines=vals.map((v,i)=>`<polyline points="${rows.map((r,k)=>`${x(k)},${y((r.shares||{})[v]||0)}`).join(' ')}" style="fill:none;stroke:var(${cols[i]});stroke-width:2.5"></polyline>${rows.map((r,k)=>`<circle cx="${x(k)}" cy="${y((r.shares||{})[v]||0)}" r="3.5" style="fill:var(${cols[i]})"></circle>`).join('')}`).join('');
+ return nest+`<svg viewBox="0 0 ${W} ${H}" class="jsvg" role="img" aria-label="Value weight shares across saved seeds">${[0,.25,.5].map(t=>`<line x1="${px}" x2="${W-20}" y1="${y(t)}" y2="${y(t)}" style="stroke:var(--line)"></line><text x="${px-6}" y="${y(t)+4}" text-anchor="end" class="jlab">${pct(t)}%</text>`).join('')}${rows.map((r,k)=>`<text x="${x(k)}" y="${H-4}" text-anchor="middle" class="jlab">Seed ${k+1}</text>`).join('')}${lines}</svg><div class="legend">${vals.map((v,i)=>`<span><i style="background:var(${cols[i]})"></i>${esc(v)}</span>`).join('')}</div>`}
+function renderJourney(){const el=$('#journey');if(!el)return;const R=compute();const d=D();
+ if(S.j.view==='pattern'){el.innerHTML=patternHTML();return}
+ const i=S.j.scene;el.innerHTML=`<div class="jhead"><span class="eyebrow">Scene ${i+1} of ${SCENES.length}</span><h3>${SCENES[i]}</h3><span class="legend"><span><i style="background:var(--rose)"></i>You chose or wrote</span><span><i style="background:var(--leaf)"></i>Calculated</span></span></div>
+ <div class="jscene" key="${i}">${sceneHTML(i,R,d)}</div>
+ <div class="jctrl"><button class="btn ghost sm" data-act="jprev" ${i===0?'disabled':''}>Back</button><button class="btn sm" data-act="jplay">${S.j.playing?'Pause':i===SCENES.length-1?'Replay':'Play'}</button><button class="btn ghost sm" data-act="jnext" ${i===SCENES.length-1?'disabled':''}>Next</button><span class="dots">${SCENES.map((s,k)=>`<button class="dot" data-act="jgo" data-i="${k}" aria-label="Scene ${k+1}: ${s}" aria-current="${k===i}"></button>`).join('')}</span></div>`}
+
+/* ================= Bloom panel ================= */
+function roseSVG(R,labels=false){const op=.3+R.total*.6;const top=R.V.top.slice(0,2);
+ const petals=PORDER.map((p,i)=>{const ang=i*90;const len=Math.min(100,30+R.ps.sh[p]*150);const rx=Math.max(14,len*.42);return `<g transform="rotate(${ang})"><ellipse cx="0" cy="${-(len/2+14)}" rx="${rx}" ry="${len/2}" class="petal" style="fill:var(${PCOL[p]});fill-opacity:${op.toFixed(2)};stroke:var(${PCOL[p]});stroke-width:1.5"></ellipse><text x="0" y="${-(len+22)}" text-anchor="middle" transform="rotate(${-ang} 0 ${-(len+22)})" style="fill:var(--fg);font:700 13px var(--display)">${labels?PNAME[p]:p}</text></g>`}).join('');
+ return `<svg viewBox="-150 -150 300 300" role="img" aria-label="Rose: petal size shows your barrier split, color strength shows your bloom score"><line x1="0" y1="20" x2="0" y2="148" style="stroke:var(--leaf);stroke-width:3"></line>${top[0]?`<ellipse cx="-30" cy="100" rx="28" ry="10" transform="rotate(-25 -30 100)" style="fill:var(--leaf);fill-opacity:.8"></ellipse><text x="-70" y="132" text-anchor="middle" style="fill:var(--fg);font:12px var(--body)">${esc(top[0])}</text>`:''}${top[1]?`<ellipse cx="30" cy="82" rx="28" ry="10" transform="rotate(25 30 82)" style="fill:var(--leaf);fill-opacity:.8"></ellipse><text x="72" y="112" text-anchor="middle" style="fill:var(--fg);font:12px var(--body)">${esc(top[1])}</text>`:''}${petals}<circle r="24" style="fill:var(--card);stroke:var(--rose);stroke-width:2"></circle><text y="6" text-anchor="middle" style="fill:var(--rose);font:700 17px var(--display)">${pct(R.total)}</text></svg>`}
+function renderPanel(){const el=$('#bloom');if(!el)return;const R=compute();const d=D();const tot=pct(R.total);const changed=S.lastTotal!=null&&S.lastTotal!==tot;S.lastTotal=tot;
+ const status=[R.pos.ok?'<p class="status"><span class="ok">Positionality: named</span></p>':flag(`Positionality: still needed, ${esc(R.pos.missing.join(' and '))}`),lens()==='rose'?(R.gate.ok?'<p class="status"><span class="ok">Community-informed, credited, and compensated</span></p>':flag(`Co-lead first: ${esc(R.gate.missing.join(', '))}`)):''].join('');
+ const st=steps();
+ el.innerHTML=`<div class="panel bloompanel">
+  <div class="score"><span class="eyebrow">Your bloom</span><span class="big${changed?' pulse':''}">${tot}</span></div>
+  ${roseSVG(R)}
+  <p class="hint">Petals: your Resources, Outreach, Service, Education split. Starting petal: <strong>${PNAME[R.ps.start]}</strong>. Color strength is your bloom; leaves are your two strongest values.</p>
+  <div class="formula">Bloom = average of your four alignment metrics</div>
+  <div class="bars">${R.metrics.map(m=>`<details class="calc" data-open-key="m:${m.id}"${S.open['m:'+m.id]?' open':''}><summary><div class="bar${m.v==null?' na':''}"><span><strong>${m.label}</strong></span><span class="w">${m.v==null?'open':pct(m.v)}</span><div class="track"><div class="fill" style="width:${(m.v||0)*100}%"></div></div></div></summary><div class="explain">${esc(m.desc)}<br>${m.parts.map(p=>`${esc(p.label)}: ${p.v==null?'open':f2(p.v)} <span class="hint">(${esc(p.e)})</span>`).join('<br>')}<br>= mean of answered parts = ${m.v==null?'open':f2(m.v)}</div></details>`).join('')}</div>
+  <p class="hint">Calculated live from your answers. Tap a metric to see its parts.</p>
+ </div>
+ <div class="panel"><div class="score"><span class="eyebrow">Project plan</span><span class="mid">${pct(R.plan.total)}%</span></div><div class="track big"><div class="fill" style="width:${R.plan.total*100}%"></div></div>
+  <div class="planrows">${st.map((id,k)=>`<button class="planrow" data-act="go" data-i="${k}"><span>${SLOT[id]}</span><span class="track"><span class="fill" style="width:${(R.plan.per[id]||0)*100}%"></span></span><span class="num">${pct(R.plan.per[id]||0)}%</span></button>`).join('')}</div></div>
+ <div class="panel"><span class="eyebrow">Your values hit</span><div class="bars">${R.V.vals.map(v=>`<div class="bar"><span>${esc(v)} <span class="hint">· weight ${pct((+d.vw[v]||0)/(R.V.wsum||1))}%</span></span><span class="w">${pct(R.V.T[v])}%</span><div class="track"><div class="fill" style="width:${R.V.T[v]*100}%;background:var(--leaf)"></div></div></div>`).join('')||'<span class="hint">Choose values in Why to see how well this project serves them.</span>'}</div><p class="hint">How fully the project serves each value: direct + path effects, up to 100%</p></div>
+ <div class="panel">${status}${S.note?`<p class="note">${esc(S.note)}</p>`:''}</div>
+ <details class="panel" data-open-key="math"${S.open.math?' open':''}><summary class="eyebrow" style="cursor:pointer">How the math works</summary>${mathBlock()}</details>
+ <details class="panel" data-open-key="found"${S.open.found?' open':''}><summary class="eyebrow" style="cursor:pointer">Foundations</summary>${foundBlock()}</details>`}
+function mathBlock(){return `<ol class="mathlist">
+ <li><strong>Your words become values.</strong> A phrase dictionary matches what you type to one of 10 values. Your words are the indicator; the value is the latent construct behind them, as in an SEM measurement model.</li>
+ <li><strong>Ratings become 0 to 1.</strong> Each 0 to 4 slider ÷ 4. A 3 becomes <code>0.75</code>.</li>
+ <li><strong>Your weights become percentages.</strong> Each value weight ÷ the sum of your value weights</li>
+ <li><strong>Values hit uses SEM's tracing rule.</strong> Total effect = direct + Σ (source value's direct score × path strength). Weak <code>.3</code>, Moderate <code>.6</code>, Strong <code>.9</code>, capped at 100%.</li>
+ <li><strong>Four alignment metrics:</strong> each is the average of its answered parts.<br>Self-satisfaction: values alignment, excitement, and how satisfied you are with the direction<br>Self-concept: "sounds like me," positionality, ethical competence, and specifics in your own words<br>Projected success rate: readiness, skill and experience, scope fit (size against your stage, capacity, and timeline), and clarity, estimating success with consistent effort and a standard approach<br>Life flourishing: ripple, community values served, outcomes, and common ground or need</li>
+ <li><strong>Your bloom:</strong> the average of the four metrics, × 100</li>
+ <li><strong>Project plan:</strong> the share of each formula slot you've filled in, and overall</li>
+ <li><strong>Gates:</strong> A card saves once your positionality is named. Third space cards stay drafts until they are community-informed, credited, and compensated.</li>
+ <li><strong>Over time:</strong> Each saved card is a decision nested within you; the pattern view tracks how your weights shift (within-person repeated measures).</li>
+ <li><strong>You are the reference point.</strong> Scores describe your own answers, with no norms or comparison groups. This reflection tool has no validation sample yet. Your answers stay in this browser on this device.</li></ol>`}
+function foundBlock(){return `<ul class="found">
+ <li><strong>Third place:</strong> Oldenburg (1989), places between home and work that welcome, level status, and center conversation</li>
+ <li><strong>Belonging in nested scales:</strong> Baumeister &amp; Leary (1995); place at the scales of self, people, place, city, and nation (Scannell &amp; Gifford, 2010)</li>
+ <li><strong>Hull House:</strong> Jane Addams and Ellen Gates Starr's Chicago settlement house (1889), a community hub before the term existed: services, education, arts, and neighborhood research under one roof.</li>
+ <li><strong>Liberation psychology, Indigenous psychology, and SAPR (social action participatory research):</strong> start from lived experience (Martín-Baró), root the work in the community's own knowledge, and let the community co-lead the action (Lewin's action research and participatory research). Together they make a project the community's own.</li>
+ <li><strong>Bicultural integration:</strong> Berry's acculturation model; keep heritage culture and engage the new.</li>
+ <li><strong>Superordinate goals and contact:</strong> Sherif's Robbers Cave studies; Allport (1954).</li>
+ <li><strong>Multicultural competence as ethical competence:</strong> ongoing, dynamic, and reflexive, because culture is; it lives in Who (positionality) and How (community-informed, credited, compensated)</li>
+ <li><strong>Micro to macro:</strong> structuration theory (Giddens): everyday individual choices and social structures shape each other.</li>
+ <li><strong>Every field:</strong> human flourishing runs through engineering, the sciences, and the arts. See the Soil-moisture CubeSat example.</li></ul>`}
+
+/* ================= Render ================= */
+const LENSGROUP={rose:'basha',research:'research',art:'art',self:'self',discover:'discover',career:'self',relations:'self',lead:'self',grief:'self',daily:'daily',shop:'shop'};
+const HERO={
+ rose:{eb:'ROSE · Third Space',title:'Amar Basha: Third Space',bn:'আমার বাসা',sub:'Create a third space, or grow one you have into a community hub, co-led with the people it serves.',f:true},
+ research:{eb:'ROSE · Build Your Product · Scientific',title:'Build Your Product',sub:'Scientific: from a question you care about to a research product that helps, grounded in theory, built with sound methods, and written in your words',f:true},
+ art:{eb:'ROSE · Build Your Product · Creative',title:'Build Your Product',sub:'Creative: choose a medium and shape a project around what your art does for people.'},
+ career:{eb:'ROSE · Self-development',title:'Career and Personal Development',sub:'Decide your next step by what matters to you.'},
+ relations:{eb:'ROSE · Self-development',title:'Relationship Values',sub:'Professional and personal relationships, weighed by your values'},
+ lead:{eb:'ROSE · Self-development',title:'Leadership and Conflict Resolution',sub:'Find the goal both sides share, and a fair way forward.'},
+ grief:{eb:'ROSE · Self-development',title:'Grief Processing',sub:'Trauma-informed, at your own pace'},
+ self:{eb:'ROSE · Self-development',title:'Self-Development',sub:'Career, relationships, leadership, grief, and finding where to share your work, all through your values'},
+ daily:{eb:'ROSE · Daily Decision Playground',title:'Daily Decision Playground',sub:'The same values, for the choices in front of you today'},
+ shop:{eb:'ROSE · Values-Based Shopping',title:'Values-Based Shopping',sub:'You define what ethical means. Find companies and artists to support, and see what they do about it, from your cart to the world.'}};
+function heroArt(){return `<svg viewBox="-120 -120 240 260" aria-hidden="true" class="hero-rose">${PORDER.map((p,i)=>`<g transform="rotate(${i*90})"><ellipse cx="0" cy="-52" rx="34" ry="46" style="fill:var(${PCOL[p]});fill-opacity:.14;stroke:var(${PCOL[p]});stroke-width:2"></ellipse></g>`).join('')}<circle r="16" style="fill:var(--card);stroke:var(--rose);stroke-width:2"></circle><path d="M0 18 V135" style="stroke:var(--leaf);stroke-width:3;fill:none"></path><ellipse cx="-24" cy="95" rx="22" ry="8" transform="rotate(-25 -24 95)" style="fill:var(--leaf);fill-opacity:.6"></ellipse></svg>`}
+function heroHTML(){const h=HERO[S.tab];if(!h)return '';return `<section class="hero"><div class="hero-copy"><span class="eyebrow">${esc(h.eb)}</span><h2 class="hero-title">${esc(h.title)}${h.bn?`<span class="bn" lang="bn">${h.bn}</span>`:''}</h2><p class="hero-sub">${esc(h.sub)}</p>${h.f?`<p class="hero-formula"><span>Petal</span>+<span>Who</span>+<span>What</span>+<span>How</span>+<span>Why</span></p>`:''}</div><div class="hero-art">${heroArt()}</div><div class="drift" aria-hidden="true">${[0,1,2,3,4,5,6].map(k=>`<i style="--x:${8+k*13}%;--d:${(k*1.7)%9}s;--t:${9+(k%3)*3}s;--c:var(${PCOL[PORDER[k%4]]})"></i>`).join('')}</div></section>`}
+function renderTabs(){$('#tabs').innerHTML=TABS.map(([id,name])=>`<button role="tab" data-act="tab" data-v="${id}" aria-selected="${S.tab===id||(id==='product'&&PRODSUB.some(p=>p[0]===S.tab))}">${esc(name)}</button>`).join('')}
+function potSVG(kind){const steam=`<path class="steam" d="M90 60 q-10 -15 0 -30 q10 -15 0 -30"/><path class="steam s2" d="M120 60 q-10 -15 0 -30 q10 -15 0 -30"/><path class="steam s3" d="M150 60 q-10 -15 0 -30 q10 -15 0 -30"/>`;
+ const shapes={pot:`<rect x="50" y="90" width="140" height="100" rx="18" style="fill:var(--rose)"/><rect x="40" y="80" width="160" height="16" rx="8" style="fill:var(--fg)"/><rect x="18" y="110" width="26" height="12" rx="6" style="fill:var(--fg)"/><rect x="196" y="110" width="26" height="12" rx="6" style="fill:var(--fg)"/>`,bread:`<ellipse cx="120" cy="150" rx="90" ry="50" style="fill:var(--amber)"/><path d="M70 130 q15 -12 30 0 M105 125 q15 -12 30 0 M140 130 q15 -12 30 0" style="stroke:var(--card);stroke-width:5;fill:none;stroke-linecap:round"/><rect x="25" y="185" width="190" height="14" rx="7" style="fill:var(--fg)"/>`,bowl:`<path d="M30 110 h180 a90 80 0 0 1 -180 0z" style="fill:var(--plum)"/><circle cx="90" cy="105" r="10" style="fill:var(--leaf)"/><circle cx="130" cy="100" r="8" style="fill:var(--amber)"/><circle cx="160" cy="106" r="9" style="fill:var(--rose)"/>`,cup:`<rect x="60" y="90" width="110" height="110" rx="16" style="fill:var(--amber)"/><path d="M170 115 a28 28 0 0 1 0 56" style="stroke:var(--amber);stroke-width:12;fill:none"/><rect x="45" y="200" width="150" height="10" rx="5" style="fill:var(--fg)"/>`,sprout:`<path d="M120 200 V120" style="stroke:var(--leaf);stroke-width:6;fill:none;stroke-linecap:round"/><path d="M120 140 q-45 -10 -55 -55 q45 5 55 55z" style="fill:var(--leaf)"/><path d="M120 125 q40 -15 50 -60 q-45 10 -50 60z" style="fill:var(--leaf);opacity:.8"/><rect x="70" y="195" width="100" height="28" rx="10" style="fill:var(--amber)"/>`,plate:`<ellipse cx="120" cy="170" rx="100" ry="26" style="fill:var(--soft);stroke:var(--line);stroke-width:3"/><ellipse cx="120" cy="166" rx="62" ry="14" style="fill:var(--card)"/><rect x="92" y="120" width="56" height="40" rx="6" style="fill:var(--rose)"/><rect x="100" y="112" width="40" height="10" rx="4" style="fill:var(--amber)"/>`,vase:`<path d="M95 70 h50 v20 q40 30 30 80 q-10 40 -55 40 q-45 0 -55 -40 q-10 -50 30 -80z" style="fill:var(--leaf)"/><path d="M70 150 q50 20 100 0" style="stroke:var(--card);stroke-width:5;fill:none"/><rect x="40" y="210" width="160" height="12" rx="6" style="fill:var(--rose)"/>`};
+ return `<svg viewBox="0 0 240 240" aria-hidden="true">${kind==='vase'||kind==='sprout'?'':steam}${shapes[kind]}</svg>`}
+function prodNav(){if(!PRODSUB.some(p=>p[0]===S.tab))return '';return `<nav class="subtabs" aria-label="Build Your Product">${PRODSUB.map(([id,n])=>`<button data-act="prodsub" data-v="${id}" aria-pressed="${S.tab===id}">${esc(n)}</button>`).join('')}</nav>`}
+function renderSoon(){const isSelf=S.tab==='self';const sk=isSelf?(S.selfSub||'career'):S.tab;const s=SOON[sk];$('#app').innerHTML=heroHTML()+prodNav()+(isSelf?`<nav class="subtabs" aria-label="Self-development">${SELFSUB.map(([id,n])=>`<button data-act="selfsub" data-v="${id}" aria-pressed="${sk===id}">${esc(n)}</button>`).join('')}</nav>`:'')+`<div class="uc"><div style="display:flex;flex-direction:column;gap:14px;min-width:0"><span class="eyebrow">${esc(s.name)} <span class="soon">${esc(s.badge)}</span></span><h2>${esc(s.word)}</h2><p class="info">${esc(s.line)}</p><span class="eyebrow">Ingredients so far</span><ul class="ingredients">${s.ing.map(i=>`<li>${esc(i)}</li>`).join('')}</ul><p class="hint">It uses the same engine and values map. Meanwhile, try Amar Basha: Third Space or Build Your Product.</p></div><div class="pot">${potSVG(s.pot)}</div></div>`}
+function renderLens(){const ex=Object.entries(EX).filter(([k,e])=>e.lens===lens());const cur=S.exName[lens()];
+ $('#app').innerHTML=heroHTML()+prodNav()+`<div class="subrow"><div class="controls"><div class="seg" role="group" aria-label="Depth"><button data-act="mode" data-v="quick" aria-pressed="${S.mode==='quick'}">Quick · 5 min</button><button data-act="mode" data-v="deep" aria-pressed="${S.mode==='deep'}">Deep · 15 min</button></div></div>
+   <p class="disclose">${lens()==='rose'?'Petal + Who + What + How + Why = your ROSE card. Tap any slot to fill it in, in any order. ':'Petal + Who + What (theory) + How (methods) + Why = your research card. Tap any slot to fill it in, in any order. '}Scores use your own weights and ratings; your answers stay in this browser.</p></div>
+  <div class="examples"><span class="tag">Try an example:</span>${ex.map(([k,e])=>`<button class="linkbtn" data-act="example" data-v="${k}" aria-pressed="${cur===k}">${esc(e.name)}</button>`).join('')}<button class="linkbtn" data-act="clear">Start your own</button>${cur?`<span class="banner"><span class="ex">EXAMPLE</span> You're viewing ${esc(EX[cur].name)}. Edit anything, or start your own.</span>`:''}</div>
+  <div class="grid2"><div class="work"><nav class="fstrip" id="stepnav" aria-label="ROSE formula"></nav><main class="step" id="step"></main></div><aside class="bloom" id="bloom"></aside></div>`;
+ renderNav();renderStep();renderPanel()}
+function renderNav(){const st=steps();const i=S.step[lens()];$('#stepnav').innerHTML=st.map((id,k)=>{const sm=slotSummary(id);const op=id==='petal'||id==='idea'?'':id==='card'?'<span class="op">=</span>':'<span class="op">+</span>';return `${op}<button class="slot${sm?' filled':''}${id==='idea'?' idea':''}" data-act="go" data-i="${k}" ${k===i?'aria-current="step"':''}><span class="slab">${SLOT[id]}</span><span class="sval">${esc(sm||(id==='card'?'Your card':'fill in'))}</span></button>${id==='idea'?'<span class="op colon">:</span>':''}`}).join('')}
+function renderStep(){const st=steps();const i=S.step[lens()];const m=META[lens()][st[i]];
+ $('#step').innerHTML=`<div class="stephead"><span class="eyebrow">Step ${i+1} of ${st.length}</span><h2>${esc(m.t)}</h2><p class="info">${esc(m.info)}</p><p class="cheer">${esc(m.cheer)}</p></div>${m.q()}${m.d?m.d():''}
+ <div class="navbtns"><button class="btn ghost" data-act="prev" ${i===0?'disabled':''}>Back</button><button class="btn" data-act="next" ${i===st.length-1?'disabled':''}>${i===st.length-2?'See my card':'Next'}</button></div>`;refreshDynamic();renderJourney()}
+function refreshDynamic(){if(!LENSES.includes(lens()))return;const d=D();
+ document.querySelectorAll('[data-share]').forEach(el=>{const k=el.dataset.share;const o=get(d,k)||{};const keys=[...document.querySelectorAll(`[data-share="${k}"]`)].map(e=>e.dataset.id);const t=keys.reduce((a,x)=>a+(+o[x]||0),0)||1;el.textContent=pct((+o[el.dataset.id]||0)/t)+'%'});
+ document.querySelectorAll('[data-anchor]').forEach(el=>{const raw=get(d,el.dataset.anchor);if(raw==null){el.textContent='Not rated yet';return}const v=+raw;el.textContent=(el.dataset.anchor.includes('depth')?'Depth ':'')+v+' · '+ANCH[v]});
+ const pr=$('#petalReadout');if(pr)pr.innerHTML=petalReadout();const sb=$('#sugbox');if(sb)sb.innerHTML=suggestBox();if($('#stepnav'))renderNav();
+ const dt=$('#detect');if(dt)dt.innerHTML=detectHTML();
+ const sv=document.querySelector('[data-act="saveSeed"]');if(sv)sv.disabled=!canSave()}
+const AUD=['Consumer','Creator','Professional','Scientist','Silly goose'];const AUDFOR=['For myself','For my organization'];
+const AUDMAP={'Consumer':'shop','Creator':'art','Professional':'self','Scientist':'research','Silly goose':'research'};const AUDMAP_ORG={'Consumer':'shop','Creator':'art','Professional':'rose','Scientist':'research','Silly goose':'research'};
+function renderAud(){const el=$('#aud');if(!el)return;
+ if(!S.aud&&S.audSkipped&&!S.audEdit){el.innerHTML=`<div class="audmini"><button class="linkbtn" data-act="audEdit">Choose where to start</button></div>`;return}
+ if(S.aud&&!S.audEdit){el.innerHTML=`<div class="audmini"><span class="hint">Viewing as an ethical</span><strong>${esc(S.aud.toLowerCase())}</strong><span class="hint">·</span><strong>${esc(S.audFor||'For myself')}</strong><button class="linkbtn" data-act="audEdit">Change</button></div>`;return}
+ el.innerHTML=`<div class="audcard"><span class="lab">Where would you like to start?</span>
+  <div class="audrow"><span class="hint">I'm an ethical</span><div class="chips">${AUD.map(a=>`<button class="chip" data-act="audPick" data-v="${esc(a)}" aria-pressed="${S.aud===a}">${esc(a)}</button>`).join('')}</div></div>
+  <div class="audrow"><span class="hint">I'm here</span><div class="chips">${AUDFOR.map(a=>`<button class="chip" data-act="audFor" data-v="${esc(a)}" aria-pressed="${(S.audFor||'For myself')===a}">${esc(a)}</button>`).join('')}</div></div>
+  <div class="audrow"><span class="hint">This opens the tab that fits. Every tab stays available.</span>${S.aud?'<button class="btn sm" data-act="audDone">Done</button>':'<button class="linkbtn" data-act="audSkip">Skip</button>'}</div></div>`}
+function applyAud(){if(!S.aud)return;const m=(S.audFor==='For my organization'?AUDMAP_ORG:AUDMAP)[S.aud];if(m){S.tab=m;S.note=''}}
+function renderAll(){stopPlay();if(S.tab==='product')S.tab=S.prodSub||'research';if(!TABS.find(t=>t[0]===S.tab)&&!PRODSUB.find(t=>t[0]===S.tab))S.tab=SELFSUB.find(t=>t[0]===S.tab)?(S.selfSub=S.tab,'self'):'rose';const w=document.querySelector('.wrap');if(w)w.dataset.lens=(S.tab==='self'&&S.selfSub==='discover')?'discover':(LENSGROUP[S.tab]||'basha');renderAud();renderTabs();if(SOON[S.tab]||S.tab==='self')renderSoon();else renderLens();save()}
+function rippleNote(){const d=D();const n=d.ripple.filter(r=>r.name&&r.name.trim()).length;if(!n)return '';const start=(d.spark||'your idea').replace(/\.$/,'');return `You started with "${start.length>60?start.slice(0,57)+'...':start}". You just found ${n} ${n===1?'community':'communities'} it serves.`}
+const rerender=()=>{renderStep();renderPanel();save()};
+function goStep(n){const st=steps();const prev=S.step[lens()];S.step[lens()]=clamp(n,0,st.length-1);S.note='';stopPlay();if(st[S.step[lens()]]==='card'&&prev!==S.step[lens()]){S.j.scene=0;S.j.view='journey'}renderNav();rerender();$('#step').scrollIntoView({block:'nearest'});if(st[S.step[lens()]]==='card'&&prev!==S.step[lens()]){startPlay();renderJourney()}}
+
+/* ================= Events ================= */
+document.addEventListener('toggle',e=>{const k=e.target.dataset&&e.target.dataset.openKey;if(k){S.open[k]=e.target.open;save()}},true);
+document.addEventListener('input',e=>{const t=e.target;const k=t.dataset&&t.dataset.k;if(!k)return;let v=t.value;if(t.type==='range')v=+v;if(t.type==='number')v=v===''?'':+v;
+ setp(D(),k,v);if(k.startsWith('ripple'))S.note=rippleNote();
+ if(t.dataset.rerender){if(k==='focus')D().actions=[];renderStep()}else{refreshDynamic();if(k==='mine'||k==='like')renderJourney()}renderPanel();save()});
+document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled)return;
+ if(b.dataset.chip){const d=D();const k=b.dataset.chip,v=b.dataset.v,max=+b.dataset.max;let a=get(d,k);if(!Array.isArray(a)){a=[];setp(d,k,a)}const i=a.indexOf(v);if(i>=0)a.splice(i,1);else{if(max&&a.length>=max){S.note=`You have ${max}. Remove one to add ${v}.`;renderPanel();return}a.push(v)}
+  if(k==='values'){d.paths=d.paths.filter(p=>a.includes(p.from)&&a.includes(p.to));d.words=d.words.filter(w=>a.includes(w.value))}
+  if(k==='approaches'){const ok=new Set([...a.flatMap(x=>[...APPR[x].c,...APPR[x].a]),...(STANCE_M[d.stance]||[])]);d.methods=d.methods.filter(m=>ok.has(m))}
+  rerender();return}
+ if(b.dataset.one){const d=D();const k=b.dataset.one;setp(d,k,get(d,k)===b.dataset.v?'':b.dataset.v);rerender();return}
+ const a=b.dataset.act;if(!a)return;
+ if(a==='tab'){S.tab=b.dataset.v;S.note='';renderAll();return}
+ if(a==='selfsub'){S.selfSub=b.dataset.v;renderAll();return}
+ if(a==='prodsub'){S.prodSub=b.dataset.v;S.tab=b.dataset.v;S.note='';renderAll();return}
+ if(a==='audPick'){S.aud=b.dataset.v;S.audEdit=true;applyAud();renderAll();return}
+ if(a==='audFor'){S.audFor=b.dataset.v;S.audEdit=true;applyAud();renderAll();return}
+ if(a==='audDone'||a==='audSkip'){S.audEdit=false;if(a==='audSkip')S.aud=S.aud||'';S.audSkipped=true;renderAll();return}
+ if(a==='audEdit'){S.audEdit=true;renderAll();return}
+ const d=D();
+ if(a==='mode'){S.mode=b.dataset.v;S.open={};renderAll();return}
+ if(a==='go')return goStep(+b.dataset.i);
+ if(a==='next'||a==='prev')return goStep(S.step[lens()]+(a==='next'?1:-1));
+ if(a==='example'){const ex=EX[b.dataset.v];S.data[lens()]=structuredClone(ex.d);S.exName[lens()]=b.dataset.v;S.step[lens()]=0;S.note='';renderAll();return}
+ if(a==='clear'){S.data[lens()]=lens()==='rose'?blankRose():blankRes();S.exName[lens()]='';S.step[lens()]=0;S.note='';renderAll();return}
+ if(a==='addRipple'){d.ripple.push({name:'',level:'People',depth:2});rerender();return}
+ if(a==='delRipple'){d.ripple.splice(+b.dataset.i,1);S.note=rippleNote();rerender();return}
+ if(a==='addValue'){const v=b.dataset.v,s=b.dataset.s;if(!d.values.includes(v)){if(d.values.length>=4){S.note=`You have four values. Remove one to add ${v}.`;renderPanel();return}d.values.push(v)}
+  d.words.push({text:d.vtext.trim(),value:v});if(s&&d.values.includes(s)&&!d.paths.find(p=>p.from===v&&p.to===s))d.paths.push({from:v,to:s,str:.6});
+  S.note=s&&!d.values.includes(s)?`${v} is added. Add ${s} too if you want the path ${v} → ${s}.`:`${v} is added.`;d.vtext='';rerender();return}
+ if(a==='addSugValue'){const v=b.dataset.v;if(!d.values.includes(v)){if(d.values.length>=4){S.note=`You have four values. Remove one to add ${v}.`;renderPanel();return}d.values.push(v)}S.note=`${v} is added.`;rerender();return}
+ if(a==='addMiss'){if(!d.miss.includes(b.dataset.v))d.miss.push(b.dataset.v);rerender();return}
+ if(a==='delWord'){d.words.splice(+b.dataset.i,1);rerender();return}
+ if(a==='addPath'){const f=$('#pFrom').value,t=$('#pTo').value,s=+$('#pStr').value;if(f===t){S.note='Pick two different values to connect.';renderPanel();return}
+  d.paths=d.paths.filter(p=>!(p.from===f&&p.to===t));d.paths.push({from:f,to:t,str:s});S.note=PATHNOTE[f+'>'+t]||`In your map, ${f.toLowerCase()} feeds ${t.toLowerCase()}. Serving one moves the other.`;rerender();return}
+ if(a==='delPath'){d.paths.splice(+b.dataset.i,1);rerender();return}
+ if(a==='saveSeed'){if(!canSave())return;const R=compute();const title=(d.mine||'').trim().split(/[.:;!?]/)[0].slice(0,50);const sh={};R.V.vals.forEach(v=>sh[v]=(+d.vw[v]||0)/(R.V.wsum||1));
+  S.saved.push({id:Date.now(),lens:lens(),title,petal:PNAME[R.ps.start],sat:R.subs.sat.v==null?null:pct(R.subs.sat.v),con:R.subs.con.v==null?null:pct(R.subs.con.v),suc:R.subs.suc.v==null?null:pct(R.subs.suc.v),flo:R.subs.flo.v==null?null:pct(R.subs.flo.v),score:pct(R.total),shares:sh});
+  S.note='Saved. Try another idea or change your weights, then save again to see your pattern.';S.j.view='pattern';rerender();return}
+ if(a==='delSeed'){S.saved=S.saved.filter(s=>s.id!==+b.dataset.id);rerender();return}
+ if(a==='jview'){stopPlay();S.j.view=b.dataset.v;renderStep();return}
+ if(a==='jplay'){if(S.j.playing){stopPlay()}else{if(S.j.scene>=SCENES.length-1)S.j.scene=0;startPlay()}renderJourney();return}
+ if(a==='jprev'||a==='jnext'||a==='jgo'){stopPlay();S.j.scene=a==='jgo'?+b.dataset.i:clamp(S.j.scene+(a==='jnext'?1:-1),0,SCENES.length-1);renderJourney();return}
+ if(a==='copySeed'){const tmp=document.createElement('div');tmp.innerHTML=frameHTML();const R=compute();
+  const txt=`${lens()==='rose'?'ROSE card':'Research card'}\n\n${tmp.textContent}\n\nIn my words: ${d.mine||''}\n${d.firstStep?`30-day first step: ${d.firstStep}\n`:''}${posLine().replace(/<[^>]+>/g,'')}\n${d.colead?`Co-lead first: ${d.colead}\n`:''}\nDirections worth exploring:\n${directions().map(([x,y])=>`- ${x}: ${y}`).join('\n')}\n\nSelf-satisfaction ${R.subs.sat.v==null?'open':pct(R.subs.sat.v)} · Self-concept ${R.subs.con.v==null?'open':pct(R.subs.con.v)} · Project success ${R.subs.suc.v==null?'open':pct(R.subs.suc.v)} · Human flourishing ${R.subs.flo.v==null?'open':pct(R.subs.flo.v)} · Bloom ${pct(R.total)}`;
+  const done=m=>{const c=$('#copied');if(c)c.textContent=m};
+  try{navigator.clipboard.writeText(txt).then(()=>done('Copied'),()=>done('Copy is blocked here, so select the card text to copy it.'))}catch(err){done('Copy is blocked here, so select the card text to copy it.')}return}
+});
+renderAll();
+
+</script>
+</body>
+</html>
